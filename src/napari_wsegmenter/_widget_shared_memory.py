@@ -1,5 +1,5 @@
 import subprocess
-import tempfile
+from multiprocessing import shared_memory
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -8,6 +8,12 @@ from magicgui import magicgui
 from napari.qt.threading import WorkerBase, thread_worker
 from wetlands.environment_manager import EnvironmentManager
 
+from napari_wsegmenter._memory_manager import (
+    create_shared_array,
+    share_array,
+    wrap,
+)
+
 if TYPE_CHECKING:
     import napari
     import napari.types
@@ -15,7 +21,10 @@ if TYPE_CHECKING:
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 PYTHON_VERSION = "python=3.10"
-SEGMENTERS_PATH = Path(__file__).resolve().parent / "segmenters"
+
+SEGMENTERS_PATH = (
+    Path(__file__).resolve().parent / "segmenters" / "shared_memory"
+)
 
 config = {
     "Cellpose": {
@@ -68,7 +77,13 @@ config = {
     },
 }
 
-environment_manager = None
+
+class Global:
+    shared_image: np.ndarray
+    shm_image: shared_memory.SharedMemory
+    shared_segmentation: np.ndarray
+    shm_segmentation: shared_memory.SharedMemory
+    environment_manager: EnvironmentManager
 
 
 @thread_worker
@@ -80,12 +95,11 @@ def log_output(process: subprocess.Popen) -> None:
 
 
 def initialize_environment(name: str):
-    global environment_manager
-    if environment_manager is None:
-        environment_manager = EnvironmentManager(
+    if Global.environment_manager is None:
+        Global.environment_manager = EnvironmentManager(
             str(WETLANDS_INSTALL_DIR / "pixi")
         )
-    env = environment_manager.create(name, config[name]["dependencies"])
+    env = Global.environment_manager.create(name, config[name]["dependencies"])
     launched = env.launched()
     if not launched:
         env.launch()
@@ -98,19 +112,52 @@ def initialize_environment(name: str):
     return segmenter_module
 
 
+def initialize_shared_memory(img):
+    if (
+        Global.shared_image is not None
+        and Global.shm_image is not None
+        and Global.shared_segmentation is not None
+        and Global.shm_segmentation is not None
+    ):
+        if (
+            Global.shared_image.dtype == img.dtype
+            and Global.shared_image.shape == img.shape
+        ):
+            return
+        else:
+            release_shared_memory()
+    Global.shared_image, Global.shm_image = share_array(img)
+    Global.shared_segmentation, Global.shm_segmentation = create_shared_array(
+        img.shape, dtype="uint8"
+    )
+
+
 @magicgui(
     segmenter={"choices": ["stardist", "cellpose", "sam"]},
 )
-def segment_widget(
+def segment_widget_shared_memory(
     img: "napari.types.ImageData",
     segmenter: "str",
 ) -> "napari.types.LabelsData":
     segmenter_module = initialize_environment(segmenter)
-    with tempfile.TemporaryDirectory() as tempdir:
-        input_path = Path(tempdir) / "image.npy"
-        output_path = Path(tempdir) / "segmentation.npy"
-        np.save(input_path, cast(np.ndarray, img.data))
-        segmenter_module.segment(
-            input_path, output_path, config[segmenter]["default_parameters"]
-        )
-        return np.load(output_path)
+    initialize_shared_memory(img)
+    segmenter_module.segment(
+        wrap(Global.shared_image, Global.shm_image),
+        wrap(Global.shared_segmentation, Global.shm_segmentation),
+        config[segmenter]["default_parameters"],
+    )
+    return cast(napari.types.LabelsData, Global.shared_segmentation)
+
+
+def release_shared_memory():
+    if Global.shm_image is None:
+        return
+    Global.shm_image.close()
+    Global.shm_image.unlink()
+    if Global.shm_segmentation is None:
+        return
+    Global.shm_segmentation.close()
+    Global.shm_segmentation.unlink()
+
+
+segment_widget_shared_memory.closed.connect(release_shared_memory)  # type: ignore

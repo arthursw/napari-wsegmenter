@@ -3,18 +3,13 @@ try:
 except ImportError:
     __version__ = "unknown"
 from ._widget import (
-    ExampleQWidget,
-    ImageThreshold,
-    threshold_autogenerate_widget,
-    threshold_magic_widget,
+    segment_widget,
 )
-from ._writer import write_multiple, write_single_image
+from ._widget_shared_memory import (
+    segment_widget_shared_memory,
+)
 
 __all__ = (
-    "write_single_image",
-    "write_multiple",
-    "ExampleQWidget",
-    "ImageThreshold",
-    "threshold_autogenerate_widget",
-    "threshold_magic_widget",
+    "segment_widget",
+    "segment_widget_shared_memory",
 )
