@@ -1,0 +1,43 @@
+name: napari-wsegmenter
+display_name: WSegmenter
+# use 'hidden' to remove plugin from napari hub search results
+visibility: public
+# see https://napari.org/stable/plugins/technical_references/manifest.html#fields for valid categories
+categories: ["Annotation", "Segmentation", "Acquisition"]
+contributions:
+  commands:
+    - id: napari-wsegmenter.write_multiple
+      python_name: napari_wsegmenter._writer:write_multiple
+      title: Save multi-layer data with WSegmenter
+    - id: napari-wsegmenter.write_single_image
+      python_name: napari_wsegmenter._writer:write_single_image
+      title: Save image data with WSegmenter
+    - id: napari-wsegmenter.make_container_widget
+      python_name: napari_wsegmenter:ImageThreshold
+      title: Make threshold Container widget
+    - id: napari-wsegmenter.make_magic_widget
+      python_name: napari_wsegmenter:threshold_magic_widget
+      title: Make threshold magic widget
+    - id: napari-wsegmenter.make_function_widget
+      python_name: napari_wsegmenter:threshold_autogenerate_widget
+      title: Make threshold function widget
+    - id: napari-wsegmenter.make_qwidget
+      python_name: napari_wsegmenter:ExampleQWidget
+      title: Make example QWidget
+  writers:
+    - command: napari-wsegmenter.write_multiple
+      layer_types: ['image*','labels*']
+      filename_extensions: []
+    - command: napari-wsegmenter.write_single_image
+      layer_types: ['image']
+      filename_extensions: ['.npy']
+  widgets:
+    - command: napari-wsegmenter.make_container_widget
+      display_name: Container Threshold
+    - command: napari-wsegmenter.make_magic_widget
+      display_name: Magic Threshold
+    - command: napari-wsegmenter.make_function_widget
+      autogenerate: true
+      display_name: Autogenerate Threshold
+    - command: napari-wsegmenter.make_qwidget
+      display_name: Example QWidget
