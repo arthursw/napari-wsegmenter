@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from magicgui import magicgui
+from magicgui import magic_factory
 from napari.qt.threading import WorkerBase, thread_worker
 from wetlands.environment_manager import EnvironmentManager
 
@@ -132,8 +132,24 @@ def initialize_shared_memory(img):
     )
 
 
-@magicgui(
+def release_shared_memory():
+    if Global.shm_image is None:
+        return
+    Global.shm_image.close()
+    Global.shm_image.unlink()
+    if Global.shm_segmentation is None:
+        return
+    Global.shm_segmentation.close()
+    Global.shm_segmentation.unlink()
+
+
+def _widget_initializer(widget):
+    widget.root_native_widget.closeEvent().connect(release_shared_memory)
+
+
+@magic_factory(
     segmenter={"choices": ["stardist", "cellpose", "sam"]},
+    widget_init=_widget_initializer,
 )
 def segment_widget_shared_memory(
     img: "napari.types.ImageData",
@@ -147,17 +163,3 @@ def segment_widget_shared_memory(
         config[segmenter]["default_parameters"],
     )
     return cast(napari.types.LabelsData, Global.shared_segmentation)
-
-
-def release_shared_memory():
-    if Global.shm_image is None:
-        return
-    Global.shm_image.close()
-    Global.shm_image.unlink()
-    if Global.shm_segmentation is None:
-        return
-    Global.shm_segmentation.close()
-    Global.shm_segmentation.unlink()
-
-
-segment_widget_shared_memory.closed.connect(release_shared_memory)  # type: ignore

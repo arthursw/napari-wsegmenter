@@ -16,5 +16,6 @@ from napari_wsegmenter._widget_shared_memory import (
 )
 def test_segment_widget_shared_memory(shape, model_name):
     im_data = np.random.random(shape)
-    thresholded = segment_widget_shared_memory(im_data, model_name)  # type: ignore
+    widget = segment_widget_shared_memory()
+    thresholded = widget(im_data, model_name)
     assert thresholded.shape == im_data.shape
