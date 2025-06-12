@@ -5,11 +5,16 @@ except ImportError:
 from ._widget import (
     segment_widget,
 )
-from ._widget_shared_memory import (
-    segment_widget_shared_memory,
+
+# from ._widget_shared_memory import (
+#     segment_widget_shared_memory,
+# )
+from ._widget_qt_shared_memory import (
+    ImageSegmenter,
 )
 
 __all__ = (
     "segment_widget",
-    "segment_widget_shared_memory",
+    # "segment_widget_shared_memory",
+    "ImageSegmenter",
 )

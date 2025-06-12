@@ -8,7 +8,7 @@ from magicgui import magic_factory
 from napari.qt.threading import WorkerBase, thread_worker
 from wetlands.environment_manager import EnvironmentManager
 
-from napari_wsegmenter._memory_manager import (
+from napari_wsegmenter.core._memory_manager import (
     create_shared_array,
     share_array,
     wrap,
@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-PYTHON_VERSION = "python=3.10"
+PYTHON_VERSION = "3.10"
 
 SEGMENTERS_PATH = (
-    Path(__file__).resolve().parent / "segmenters" / "shared_memory"
+    Path(__file__).resolve().parent / "core" / "segmenters" / "shared_memory"
 )
 
 config = {

@@ -8,8 +8,9 @@ from napari.qt.threading import WorkerBase, thread_worker
 from napari.viewer import Viewer
 from qtpy.QtWidgets import QComboBox, QLabel, QPushButton, QVBoxLayout, QWidget
 from wetlands.environment_manager import EnvironmentManager
+from wetlands.external_environment import ExternalEnvironment
 
-from napari_wsegmenter._memory_manager import (
+from napari_wsegmenter.core._memory_manager import (
     create_shared_array,
     release_shared_memory,
     share_array,
@@ -18,8 +19,10 @@ from napari_wsegmenter._memory_manager import (
 
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-PYTHON_VERSION = "python=3.10"
-SEGMENTERS_PATH = Path(__file__).resolve().parent / "segmenters"
+PYTHON_VERSION = "3.10"
+SEGMENTERS_PATH = (
+    Path(__file__).resolve().parent / "core" / "segmenters" / "shared_memory"
+)
 
 
 @thread_worker
@@ -87,11 +90,11 @@ class ImageSegmenter(QWidget):
         },
     }
 
-    _environment_manager: EnvironmentManager
-    _shared_image: np.ndarray
-    _shm_image: shared_memory.SharedMemory
-    _shared_segmentation: np.ndarray
-    _shm_segmentation: shared_memory.SharedMemory
+    _environment_manager: EnvironmentManager | None = None
+    _shared_image: np.ndarray | None = None
+    _shm_image: shared_memory.SharedMemory | None = None
+    _shared_segmentation: np.ndarray | None = None
+    _shm_segmentation: shared_memory.SharedMemory | None = None
 
     def __init__(self, viewer: Viewer):
         super().__init__()
@@ -109,7 +112,7 @@ class ImageSegmenter(QWidget):
         # Segmenter combo
         self._segmenter_label = QLabel("Segmenter")
         self._segmenter_combo = QComboBox()
-        self._segmenter_combo.addItems(["stardist", "cellpose", "sam"])
+        self._segmenter_combo.addItems(["StarDist", "Cellpose", "SAM"])
         layout.addWidget(self._segmenter_label)
         layout.addWidget(self._segmenter_combo)
 
@@ -121,11 +124,11 @@ class ImageSegmenter(QWidget):
         self.setLayout(layout)
 
         # Populate image combo when viewer updates
-        self._viewer.layers.events.inserted.connect(self.update_image_layers)
-        self._viewer.layers.events.removed.connect(self.update_image_layers)
-        self.update_image_layers()
+        self._viewer.layers.events.inserted.connect(self._update_image_layers)
+        self._viewer.layers.events.removed.connect(self._update_image_layers)
+        self._update_image_layers()
 
-    def update_image_layers(self, event=None):
+    def _update_image_layers(self, event=None):
         self._image_layer_combo.clear()
         image_layers = [
             layer.name
@@ -134,11 +137,11 @@ class ImageSegmenter(QWidget):
         ]
         self._image_layer_combo.addItems(image_layers)
 
-    def initialize_environment(self, name: str):
+    def _initialize_environment(self, name: str):
         config = self.config[name]
         if self._environment_manager is None:
             self._environment_manager = EnvironmentManager(
-                str(WETLANDS_INSTALL_DIR / "pixi")
+                str(WETLANDS_INSTALL_DIR / "micromamba")
             )
         environment = self._environment_manager.create(
             name, config["dependencies"]
@@ -150,11 +153,14 @@ class ImageSegmenter(QWidget):
             str(config["segmenter_script_name"])
         )
         if not launched:
-            worker = cast(WorkerBase, log_output(segmenter_module.process))
+            worker = cast(
+                WorkerBase,
+                log_output(cast(ExternalEnvironment, environment).process),
+            )
             worker.start()
         return segmenter_module
 
-    def initialize_shared_memory(self, image: np.ndarray):
+    def _initialize_shared_memory(self, image: np.ndarray):
         if (
             self._shared_image is not None
             and self._shm_image is not None
@@ -169,6 +175,7 @@ class ImageSegmenter(QWidget):
             else:
                 self.release_shared_memory()
         self._shared_image, self._shm_image = share_array(image)
+        _shared_image, _shm_image = share_array(image)
         self._shared_segmentation, self._shm_segmentation = (
             create_shared_array(image.shape, dtype="uint8")
         )
@@ -184,9 +191,7 @@ class ImageSegmenter(QWidget):
 
         image_layer = self._viewer.layers[image_name]
 
-        segmentation = self.perform_segmentation(
-            image_layer.data, self._segmenter_combo.value
-        )
+        segmentation = self._perform_segmentation(image_layer.data, segmenter)
 
         name = image_layer.name + "_segmented"
         if name in self._viewer.layers:
@@ -194,9 +199,13 @@ class ImageSegmenter(QWidget):
         else:
             self._viewer.add_labels(segmentation, name=name)
 
-    def perform_segmentation(self, image: np.ndarray, segmenter: str):
+    def _perform_segmentation(self, image: np.ndarray, segmenter: str):
         segmenter_module = self._initialize_environment(segmenter)
         self._initialize_shared_memory(image)
+        if self._shared_image is None or self._shared_segmentation is None:
+            return
+        if self._shm_image is None or self._shm_segmentation is None:
+            return
         segmenter_module.segment(
             wrap(self._shared_image, self._shm_image),
             wrap(self._shared_segmentation, self._shm_segmentation),
@@ -205,9 +214,9 @@ class ImageSegmenter(QWidget):
         return self._shared_segmentation
 
     def closeEvent(self, a0):
-        self.release_shared_memory()
+        self._release_shared_memory()
         super().closeEvent(a0)
 
-    def release_shared_memory(self):
+    def _release_shared_memory(self):
         release_shared_memory(self._shm_image)
         release_shared_memory(self._shm_segmentation)

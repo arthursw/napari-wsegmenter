@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
-PYTHON_VERSION = "python=3.10"
-SEGMENTERS_PATH = Path(__file__).resolve().parent / "segmenters"
+PYTHON_VERSION = "3.10"
+SEGMENTERS_PATH = Path(__file__).resolve().parent / "core" / "segmenters"
 
 config = {
     "Cellpose": {

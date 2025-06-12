@@ -1,15 +1,13 @@
 from contextlib import contextmanager, suppress
-from dataclasses import dataclass
 from multiprocessing import resource_tracker, shared_memory
 
 import numpy as np
 
-
-@dataclass
-class SharedArrayWrapper:
-    name: str
-    shape: tuple
-    dtype: str  # store dtype as string, e.g. 'float64', 'int32'
+# @dataclass
+# class SharedArrayWrapper:
+#     name: str
+#     shape: tuple
+#     dtype: str  # store dtype as string, e.g. 'float64', 'int32'
 
 
 def create_shared_array(shape: tuple, dtype: str | type):
@@ -34,14 +32,14 @@ def share_array(
 
 
 def wrap(shared: np.ndarray, shm: shared_memory.SharedMemory):
-    return SharedArrayWrapper(
-        name=shm.name, shape=shared.shape, dtype=shared.dtype
+    return {"name": shm.name, "shape": shared.shape, "dtype": shared.dtype}
+
+
+def unwrap(shmw: dict):
+    shm = shared_memory.SharedMemory(name=shmw["name"])
+    shared_array = np.ndarray(
+        shmw["shape"], dtype=shmw["dtype"], buffer=shm.buf
     )
-
-
-def unwrap(shmw: SharedArrayWrapper):
-    shm = shared_memory.SharedMemory(name=shmw.name)
-    shared_array = np.ndarray(shmw.shape, dtype=shmw.dtype, buffer=shm.buf)
     return shared_array, shm
 
 
@@ -57,7 +55,7 @@ def release_shared_memory(
     # Avoid resource_tracker warnings
     # Silently ignore if unregister fails
     with suppress(Exception):
-        resource_tracker.unregister(shm._name, "shared_memory")
+        resource_tracker.unregister(shm._name, "shared_memory")  # type: ignore
 
 
 @contextmanager
@@ -73,7 +71,7 @@ def share_manage_array(
 
 
 @contextmanager
-def get_shared_array(wrapper: SharedArrayWrapper):
+def get_shared_array(wrapper: dict):
     shm = None
     try:
         shared_array, shm = unwrap(wrapper)

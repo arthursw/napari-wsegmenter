@@ -1,4 +1,8 @@
-from napari_wsegmenter._memory_manager import get_shared_array
+import sys
+from pathlib import Path
+
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from ..._memory_manager import get_shared_array
 
 
 def create_segmentation(annotations):
