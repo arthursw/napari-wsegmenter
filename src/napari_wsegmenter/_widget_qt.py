@@ -4,7 +4,7 @@ from qtpy.QtWidgets import QComboBox, QLabel, QPushButton, QVBoxLayout, QWidget
 from napari_wsegmenter.core._segmenter_manager import SegmenterManager
 
 
-class ImageSegmenterWidget(QWidget):
+class SegmenterWidget(QWidget):
 
     _segmenter_manager = SegmenterManager()
 

@@ -3,7 +3,7 @@ import numpy as np
 model, last_parameters = None, None
 
 
-def segment(image_path, segmentation_path, parameters):
+def segment(image, parameters) -> np.ndarray | None:
 
     print("Loading libraries...")
     from csbdeep.utils import normalize
@@ -28,7 +28,5 @@ def segment(image_path, segmentation_path, parameters):
         return
 
     print("Computing segmentation")
-    image = np.load(image_path)
     labels, _ = model.predict_instances(normalize(image))
-    np.save(labels, segmentation_path)
-    return segmentation_path
+    return labels

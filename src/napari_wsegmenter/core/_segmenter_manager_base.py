@@ -12,6 +12,9 @@ from wetlands.external_environment import ExternalEnvironment
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
 PYTHON_VERSION = "3.10"
+SEGMENTERS_PATH = str(
+    Path(__file__).resolve().parent / "segmenters" / "_segmenters.py"
+)
 
 
 @thread_worker
@@ -26,12 +29,11 @@ class SegmenterManagerBase:
 
     config = {
         "Cellpose": {
-            "name": "cellpose",
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "conda": ["cellpose==3.1.0"],
             },
-            "segmenter_script_name": "_cellpose.py",
+            "script_name": "_cellpose.py",
             "default_parameters": {
                 "model_type": "cyto3",
                 "use_gpu": False,
@@ -39,7 +41,6 @@ class SegmenterManagerBase:
             },
         },
         "StarDist": {
-            "name": "stardist",
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "pip": [
@@ -60,16 +61,15 @@ class SegmenterManagerBase:
                     },
                 ],
             },
-            "segmenter_script_name": "_stardist.py",
+            "script_name": "_stardist.py",
             "default_parameters": {"model_name": "2D_versatile_fluo"},
         },
         "SAM": {
-            "name": "sam",
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "conda": ["sam2==1.1.0", "huggingface_hub==0.29.2"],
             },
-            "segmenter_script_name": "_sam.py",
+            "script_name": "_sam.py",
             "default_parameters": {
                 "use_gpu": False,
                 "points_per_side": 32,
@@ -81,9 +81,6 @@ class SegmenterManagerBase:
 
     _environment_manager: EnvironmentManager | None = None
     _environment: Environment | None = None
-    _segmenters_path = (
-        Path(__file__).resolve().parent / "segmenters" / "shared_memory"
-    )
 
     def _initialize_environment(self, name: str):
         config = self.config[name]
@@ -97,9 +94,7 @@ class SegmenterManagerBase:
         launched = self._environment.launched()
         if not launched:
             self._environment.launch()
-        segmenter_module = self._environment.importModule(
-            str(self._segmenters_path / config["segmenter_script_name"])
-        )
+        segmenter_module = self._environment.importModule(SEGMENTERS_PATH)
         if not launched:
             worker = cast(
                 WorkerBase,
@@ -117,7 +112,8 @@ class SegmenterManagerBase:
             input_path = Path(tempdir) / "image.npy"
             output_path = Path(tempdir) / "segmentation.npy"
             np.save(input_path, cast(np.ndarray, image.data))
-            segmenter_module.segment(
+            segmenter_module.segment_files(
+                self.config[segmenter]["script_name"],
                 input_path,
                 output_path,
                 self.config[segmenter]["default_parameters"],

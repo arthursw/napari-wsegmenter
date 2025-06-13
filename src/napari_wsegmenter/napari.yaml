@@ -6,20 +6,8 @@ categories: ["Segmentation"]
 contributions:
   commands:
     - id: napari-wsegmenter.make_segment_widget
-      python_name: napari_wsegmenter:segment_widget
+      python_name: napari_wsegmenter:SegmenterWidget
       title: Make segment widget
-    # - id: napari-wsegmenter.make_segment_widget_shared_memory
-    #   python_name: napari_wsegmenter:segment_widget_shared_memory
-    #   title: Make segment widget shared memory
-    - id: napari-wsegmenter.make_segment_widget_qt_shared_memory
-      python_name: napari_wsegmenter:ImageSegmenter
-      title: Make segment widget shared memory
   widgets:
     - command: napari-wsegmenter.make_segment_widget
-      autogenerate: true
       display_name: Segment
-    # - command: napari-wsegmenter.make_segment_widget_shared_memory
-    #   autogenerate: true
-    #   display_name: Segment shared memory
-    - command: napari-wsegmenter.make_segment_widget_qt_shared_memory
-      display_name: Segment with shared memory

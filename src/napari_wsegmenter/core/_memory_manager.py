@@ -3,12 +3,6 @@ from multiprocessing import resource_tracker, shared_memory
 
 import numpy as np
 
-# @dataclass
-# class SharedArrayWrapper:
-#     name: str
-#     shape: tuple
-#     dtype: str  # store dtype as string, e.g. 'float64', 'int32'
-
 
 def create_shared_array(shape: tuple, dtype: str | type):
     # Create the shared memory

@@ -104,7 +104,7 @@ def initialize_environment(name: str):
 @magicgui(
     segmenter={"choices": ["stardist", "cellpose", "sam"]},
 )
-def segment_widget(
+def segmenter_widget(
     img: "napari.types.ImageData",
     segmenter: "str",
 ) -> "napari.types.LabelsData":
@@ -125,4 +125,4 @@ def exit_environment():
 
 
 # I need something like this
-segment_widget.closed.connect(exit_environment)
+segmenter_widget.closed.connect(exit_environment)
