@@ -19,7 +19,7 @@ predictor, mask_generator, last_parameters = None, None, None
 
 def segment(image, parameters):
     import torch  # type: ignore
-    from sam2.automatic_mask_generator import (
+    from sam2.automatic_mask_generator import (  # type: ignore
         SAM2AutomaticMaskGenerator,  # type: ignore
     )
     from sam2.build_sam import build_sam2_hf  # type: ignore

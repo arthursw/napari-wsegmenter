@@ -12,7 +12,7 @@ import numpy as np
 from magicgui import magicgui
 from wetlands.environment_manager import (  # type: ignore
     EnvironmentManager,
-    environment,
+    environment,  # type: ignore
 )
 
 if TYPE_CHECKING:
@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 # - an "environment" which is created and launched when the command is executed
 # - a "transfert" object which describes how the parameters are sent to the other process
 # - a "command" python_path that points to a fully qualified python callable
-EnvironmentManager.initialize(
+EnvironmentManager.initialize(  # type: ignore
     {  # type: ignore          Use Wetlands.initialize instead of EnvironmentManager.initialize?
         "environments": {
             "Cellpose": {
@@ -112,7 +112,7 @@ def segmenter_widget(
                 },
             )
         case "sam":
-            return EnvironmentManager.sam(
+            return EnvironmentManager.sam(  # type: ignore
                 image,
                 {  # type: ignore
                     "use_gpu": False,
