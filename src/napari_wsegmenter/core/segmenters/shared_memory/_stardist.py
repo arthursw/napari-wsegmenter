@@ -1,28 +1,10 @@
-from contextlib import contextmanager
-from multiprocessing import shared_memory
+import sys
+from pathlib import Path
 
-import numpy as np
+sys.path.append(str(Path(__file__).parent.parent.parent))
+from _memory_manager import get_shared_array
 
 model, last_parameters = None, None
-
-
-def unwrap(shmw: dict):
-    shm = shared_memory.SharedMemory(name=shmw["name"])
-    shared_array = np.ndarray(
-        shmw["shape"], dtype=shmw["dtype"], buffer=shm.buf
-    )
-    return shared_array, shm
-
-
-@contextmanager
-def get_shared_array(wrapper: dict):
-    shm = None
-    try:
-        shared_array, shm = unwrap(wrapper)
-        yield shared_array
-    finally:
-        if shm is not None:
-            shm.close()
 
 
 def segment(shared_image, shared_segmentation, parameters):

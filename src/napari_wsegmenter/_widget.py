@@ -69,6 +69,7 @@ config = {
 }
 
 environment_manager = None
+environment = None
 
 
 @thread_worker
@@ -80,16 +81,18 @@ def log_output(process: subprocess.Popen) -> None:
 
 
 def initialize_environment(name: str):
-    global environment_manager
+    global environment_manager, environment
     if environment_manager is None:
         environment_manager = EnvironmentManager(
             str(WETLANDS_INSTALL_DIR / "pixi")
         )
-    env = environment_manager.create(name, config[name]["dependencies"])
-    launched = env.launched()
+    environment = environment_manager.create(
+        name, config[name]["dependencies"]
+    )
+    launched = environment.launched()
     if not launched:
-        env.launch()
-    segmenter_module = env.importModule(
+        environment.launch()
+    segmenter_module = environment.importModule(
         str(config[name]["segmenter_script_name"])
     )
     if not launched:
@@ -114,3 +117,12 @@ def segment_widget(
             input_path, output_path, config[segmenter]["default_parameters"]
         )
         return np.load(output_path)
+
+
+def exit_environment():
+    if environment is not None:
+        environment.exit()
+
+
+# I need something like this
+segment_widget.closed.connect(exit_environment)

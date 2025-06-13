@@ -44,7 +44,9 @@ def unwrap(shmw: dict):
 
 
 def release_shared_memory(
-    shm: shared_memory.SharedMemory | None, unlink: bool = True
+    shm: shared_memory.SharedMemory | None,
+    unlink: bool = True,
+    unregister: bool = False,
 ):
     if shm is None:
         return
@@ -52,6 +54,8 @@ def release_shared_memory(
     if not unlink:
         return
     shm.unlink()
+    if not unregister:
+        return
     # Avoid resource_tracker warnings
     # Silently ignore if unregister fails
     with suppress(Exception):
