@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 # Environments can be defined with a dict or a yml file
 # Commands define:
 # - an "environment" which is created and launched when the command is executed
-# - a "transfert" object which describes how the parameters are sent to the other process
+# - a "transfer" object which describes how the parameters are sent to the other process
 # - a "command" python_path that points to a fully qualified python callable
 EnvironmentManager.initialize(  # type: ignore
     {  # type: ignore          Use Wetlands.initialize instead of EnvironmentManager.initialize?
@@ -51,7 +51,7 @@ EnvironmentManager.initialize(  # type: ignore
 
 
 # The environment decorator enables to execute the decorated function in the given environment
-# The transfert argument defines how the parameters are sent to the process
+# The transfer argument defines how the parameters are sent to the process
 @environment(name="StarDist", transfer={"image": "file", "parameters": "pickle"})  # type: ignore
 def stardist(Global, image, parameters):
 
