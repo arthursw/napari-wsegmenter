@@ -10,4 +10,4 @@ contributions:
       title: Make segment widget
   widgets:
     - command: napari-wsegmenter.make_segment_widget
-      display_name: Segment
+      display_name: Segmenter

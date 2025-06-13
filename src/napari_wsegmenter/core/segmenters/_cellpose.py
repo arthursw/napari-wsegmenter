@@ -4,8 +4,8 @@ model, last_parameters = None, None
 def segment(image, parameters):
 
     print("Loading libraries...")
-    import cellpose.io
-    import cellpose.models
+    import cellpose.io  # type: ignore
+    import cellpose.models  # type: ignore
 
     global model, model_type, last_parameters
 

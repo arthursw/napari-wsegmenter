@@ -28,18 +28,6 @@ def log_output(process: subprocess.Popen) -> None:
 class SegmenterManagerBase:
 
     config = {
-        "Cellpose": {
-            "dependencies": {
-                "python": PYTHON_VERSION,
-                "conda": ["cellpose==3.1.0"],
-            },
-            "script_name": "_cellpose.py",
-            "default_parameters": {
-                "model_type": "cyto3",
-                "use_gpu": False,
-                "diameter": 30.0,
-            },
-        },
         "StarDist": {
             "dependencies": {
                 "python": PYTHON_VERSION,
@@ -61,18 +49,31 @@ class SegmenterManagerBase:
                     },
                 ],
             },
-            "script_name": "_stardist.py",
+            "module_name": "_stardist",
             "default_parameters": {"model_name": "2D_versatile_fluo"},
+        },
+        "Cellpose": {
+            "dependencies": {
+                "python": PYTHON_VERSION,
+                "conda": ["cellpose==3.1.0"],
+            },
+            "module_name": "_cellpose",
+            "default_parameters": {
+                "model_type": "cyto3",
+                "use_gpu": False,
+                "diameter": 30.0,
+                "channels": [0, 0],
+            },
         },
         "SAM": {
             "dependencies": {
                 "python": PYTHON_VERSION,
-                "conda": ["sam2==1.1.0", "huggingface_hub==0.29.2"],
+                "pip": ["sam2==1.1.0", "huggingface_hub==0.29.2"],
             },
-            "script_name": "_sam.py",
+            "module_name": "_sam",
             "default_parameters": {
                 "use_gpu": False,
-                "points_per_side": 32,
+                "points_per_side": 8,
                 "pred_iou_thresh": 0.88,
                 "stability_score_thresh": 0.95,
             },
@@ -86,7 +87,7 @@ class SegmenterManagerBase:
         config = self.config[name]
         if self._environment_manager is None:
             self._environment_manager = EnvironmentManager(
-                str(WETLANDS_INSTALL_DIR / "micromamba")
+                str(WETLANDS_INSTALL_DIR / "pixi")
             )
         self._environment = self._environment_manager.create(
             name, config["dependencies"]
@@ -113,7 +114,7 @@ class SegmenterManagerBase:
             output_path = Path(tempdir) / "segmentation.npy"
             np.save(input_path, cast(np.ndarray, image.data))
             segmenter_module.segment_files(
-                self.config[segmenter]["script_name"],
+                self.config[segmenter]["module_name"],
                 input_path,
                 output_path,
                 self.config[segmenter]["default_parameters"],
@@ -135,7 +136,7 @@ if __name__ == "__main__":
     result = cast(
         np.ndarray,
         segmenter_manager.perform_segmentation(
-            np.random.random((100, 100)), "StarDist"
+            np.random.random((100, 100, 3)), "SAM"
         ),
     )
     print(result.shape)

@@ -3,7 +3,7 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-from ._widget_qt import (
+from ._widget import (
     SegmenterWidget,
 )
 

@@ -1,5 +1,7 @@
+import numpy as np
+
+
 def _create_segmentation(annotations):
-    import numpy as np
 
     image = np.ones(
         (
@@ -16,9 +18,11 @@ predictor, mask_generator, last_parameters = None, None, None
 
 
 def segment(image, parameters):
-    import torch
-    from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
-    from sam2.build_sam import build_sam2_hf
+    import torch  # type: ignore
+    from sam2.automatic_mask_generator import (
+        SAM2AutomaticMaskGenerator,  # type: ignore
+    )
+    from sam2.build_sam import build_sam2_hf  # type: ignore
 
     global predictor, mask_generator, last_parameters
 
@@ -43,5 +47,5 @@ def segment(image, parameters):
                 stability_score_thresh=parameters["stability_score_thresh"],
             )
         last_parameters = parameters
-        masks = mask_generator.generate(image)
+        masks = mask_generator.generate(image.astype(np.float16))
         return _create_segmentation(masks)

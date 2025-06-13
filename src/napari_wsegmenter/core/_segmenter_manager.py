@@ -35,7 +35,7 @@ class SegmenterManager(SegmenterManagerBase):
                 self.release_shared_memory()
         self._shared_image, self._shm_image = share_array(image)
         self._shared_segmentation, self._shm_segmentation = (
-            create_shared_array(image.shape, dtype="uint8")
+            create_shared_array(image.shape[:2], dtype="uint8")
         )
 
     def perform_segmentation(
@@ -50,7 +50,7 @@ class SegmenterManager(SegmenterManagerBase):
         if self._shm_image is None or self._shm_segmentation is None:
             return
         segmenter_module.segment_shared_memory(
-            self.config[segmenter]["script_name"],
+            self.config[segmenter]["module_name"],
             wrap(self._shared_image, self._shm_image),
             wrap(self._shared_segmentation, self._shm_segmentation),
             self.config[segmenter]["default_parameters"],
@@ -60,6 +60,8 @@ class SegmenterManager(SegmenterManagerBase):
     def release_shared_memory(self):
         release_shared_memory(self._shm_image)
         release_shared_memory(self._shm_segmentation)
+        self._shm_image = None
+        self._shm_segmentation = None
 
     def exit(self):
         self.release_shared_memory()
@@ -67,11 +69,12 @@ class SegmenterManager(SegmenterManagerBase):
 
 
 if __name__ == "__main__":
+
     segmenter_manager = SegmenterManager()
     result = cast(
         np.ndarray,
         segmenter_manager.perform_segmentation(
-            np.random.random((100, 100)), "StarDist"
+            np.random.random((100, 100)), "StarDist", True
         ),
     )
     print(result.shape)

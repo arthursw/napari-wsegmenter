@@ -1,5 +1,5 @@
-from contextlib import contextmanager, suppress
-from multiprocessing import resource_tracker, shared_memory
+from contextlib import contextmanager
+from multiprocessing import shared_memory
 
 import numpy as np
 
@@ -40,20 +40,12 @@ def unwrap(shmw: dict):
 def release_shared_memory(
     shm: shared_memory.SharedMemory | None,
     unlink: bool = True,
-    unregister: bool = False,
 ):
     if shm is None:
         return
+    if unlink:
+        shm.unlink()
     shm.close()
-    if not unlink:
-        return
-    shm.unlink()
-    if not unregister:
-        return
-    # Avoid resource_tracker warnings
-    # Silently ignore if unregister fails
-    with suppress(Exception):
-        resource_tracker.unregister(shm._name, "shared_memory")  # type: ignore
 
 
 @contextmanager

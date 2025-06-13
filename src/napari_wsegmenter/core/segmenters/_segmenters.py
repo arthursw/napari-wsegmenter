@@ -3,6 +3,9 @@ from pathlib import Path
 
 import numpy as np
 
+sys.path.append(str(Path(__file__).parent.parent))
+sys.path.append(str(Path(__file__).parent))
+
 
 def _segment(module_name, image, parameters) -> np.ndarray | None:
     import importlib
@@ -22,8 +25,6 @@ def segment_files(module_name, image_path, segmentation_path, parameters):
 def segment_shared_memory(
     module_name, shared_image, shared_segmentation, parameters
 ):
-
-    sys.path.append(str(Path(__file__).parent.parent))
     from _memory_manager import get_shared_array  # type: ignore
 
     with get_shared_array(shared_image) as image:
