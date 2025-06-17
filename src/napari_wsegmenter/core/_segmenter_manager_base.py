@@ -50,7 +50,7 @@ class SegmenterManagerBase:
                 ],
             },
             "module_name": "_stardist",
-            "default_parameters": {"model_name": "2D_versatile_fluo"},
+            "default_parameters": {"model_name": "2D_versatile_he"},
         },
         "Cellpose": {
             "dependencies": {
@@ -73,7 +73,7 @@ class SegmenterManagerBase:
             "module_name": "_sam",
             "default_parameters": {
                 "use_gpu": False,
-                "points_per_side": 8,
+                "points_per_side": 32,
                 "pred_iou_thresh": 0.88,
                 "stability_score_thresh": 0.95,
             },

@@ -32,3 +32,71 @@ def segment_shared_memory(
         with get_shared_array(shared_segmentation) as segmentation:
             segmentation[:] = labels
     return shared_segmentation
+
+
+if __name__ == "__main__":
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        "Segmenters",
+        description="Segment an image using StarDist, Cellpose or SAM",
+        argument_default=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    parser.add_argument(
+        "-s",
+        "--segmenter",
+        help="Name of the segmenter",
+        choices=["stardist", "cellpose", "sam"],
+        default="cellpose",
+    )
+    parser.add_argument(
+        "-i", "--image", help="Input image path", type=Path, required=True
+    )
+    parser.add_argument(
+        "-seg",
+        "--segmentation",
+        help="Output image path",
+        type=Path,
+        default=None,
+    )
+    args = parser.parse_args()
+
+    if args.segmenter != "sam":
+        import skimage
+
+        image = skimage.io.imread(str(args.image))
+        image = skimage.color.rgb2gray(image)
+    else:
+        from PIL import Image
+
+        image = Image.open(args.image)
+        # Convert to grayscale, then back to RGB (clone gray component)
+        image = np.array(image.convert("L").convert("RGB"))
+
+    segmentation = _segment(
+        "_sam",
+        image,
+        {
+            "use_gpu": False,
+            "points_per_side": 32,
+            "pred_iou_thresh": 0.88,
+            "stability_score_thresh": 0.95,
+        },
+    )
+    if segmentation is not None:
+        segmentation_path = (
+            args.image.parent
+            / f"{args.image.stem}_segmentation{args.image.suffix}"
+            if args.segmentation is None
+            else args.segmentation
+        )
+
+        if args.segmenter != "sam":
+            import skimage
+
+            skimage.io.imsave(str(segmentation_path), segmentation)
+        else:
+            from PIL import Image
+
+            segmentation_image = Image.fromarray(segmentation)
+            segmentation_image.save(segmentation_path)

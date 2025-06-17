@@ -7,7 +7,8 @@ def _create_segmentation(annotations):
         (
             annotations[0]["segmentation"].shape[0],
             annotations[0]["segmentation"].shape[1],
-        )
+        ),
+        dtype=np.int8,
     )
     for i, annotation in enumerate(annotations):
         image[annotation["segmentation"]] = i + 1
@@ -32,12 +33,14 @@ def segment(image, parameters):
         or last_parameters is None
         or last_parameters["use_gpu"] != parameters["use_gpu"]
     ):
+        print("Load the SAM 2 model and predictor")
         predictor = build_sam2_hf(
             "facebook/sam2.1-hiera-large",
             device=torch.device(device),
             apply_postprocessing=False,
         )
 
+    print("Generate prompts")
     with torch.inference_mode(), torch.autocast(device, dtype=torch.bfloat16):
         if mask_generator is None or last_parameters != parameters:
             mask_generator = SAM2AutomaticMaskGenerator(
@@ -47,5 +50,7 @@ def segment(image, parameters):
                 stability_score_thresh=parameters["stability_score_thresh"],
             )
         last_parameters = parameters
-        masks = mask_generator.generate(image.astype(np.float16))
+        print("Perform segmentation")
+        masks = mask_generator.generate(image)
+        print("Convert segmentation")
         return _create_segmentation(masks)
