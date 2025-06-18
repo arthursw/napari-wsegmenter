@@ -27,7 +27,7 @@ def test_segmenter_widget(
 ):
     # make viewer and add an image layer using our fixture
     viewer = make_napari_viewer()
-    viewer.add_image(np.random.random_integers(0, 255, shape).astype(np.uint8))
+    viewer.add_image(np.random.randint(0, 255, shape).astype(np.uint8))
 
     # create our widget, passing in the viewer
     widget = SegmenterWidget(viewer)
@@ -48,4 +48,4 @@ def test_segmenter_widget(
 
     assert segmented_layers[0].data.shape == shape[:2]
 
-    widget.close()
+    widget.hideEvent(None)
