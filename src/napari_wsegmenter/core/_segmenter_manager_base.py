@@ -28,7 +28,7 @@ def log_output(process: subprocess.Popen) -> None:
 class SegmenterManagerBase:
 
     config = {
-        "StarDist": {
+        "stardist": {
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "pip": [
@@ -50,9 +50,9 @@ class SegmenterManagerBase:
                 ],
             },
             "module_name": "_stardist",
-            "default_parameters": {"model_name": "2D_versatile_he"},
+            "default_parameters": {"model_name": "2D_versatile_fluo"},
         },
-        "Cellpose": {
+        "cellpose": {
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "conda": ["cellpose==3.1.0"],
@@ -65,7 +65,7 @@ class SegmenterManagerBase:
                 "channels": [0, 0],
             },
         },
-        "SAM": {
+        "sam": {
             "dependencies": {
                 "python": PYTHON_VERSION,
                 "pip": ["sam2==1.1.0", "huggingface_hub==0.29.2"],
@@ -81,7 +81,7 @@ class SegmenterManagerBase:
     }
 
     _environment_manager: EnvironmentManager | None = None
-    _environment: Environment | None = None
+    _environments: list[Environment] = []
 
     def _initialize_environment(self, name: str):
         config = self.config[name]
@@ -89,19 +89,19 @@ class SegmenterManagerBase:
             self._environment_manager = EnvironmentManager(
                 str(WETLANDS_INSTALL_DIR / "pixi")
             )
-        self._environment = self._environment_manager.create(
+        environment = self._environment_manager.create(
             name, config["dependencies"]
         )
-        launched = self._environment.launched()
+        if environment not in self._environments:
+            self._environments.append(environment)
+        launched = environment.launched()
         if not launched:
-            self._environment.launch()
-        segmenter_module = self._environment.importModule(SEGMENTERS_PATH)
+            environment.launch()
+        segmenter_module = environment.importModule(SEGMENTERS_PATH)
         if not launched:
             worker = cast(
                 WorkerBase,
-                log_output(
-                    cast(ExternalEnvironment, self._environment).process
-                ),
+                log_output(cast(ExternalEnvironment, environment).process),
             )
             worker.start()
         return segmenter_module
@@ -121,14 +121,13 @@ class SegmenterManagerBase:
             )
             return np.load(output_path)
 
-    def exit_environment(self):
-        if self._environment is None:
-            return
-        self._environment.exit()
-        self._environment = None
+    def exit_environments(self):
+        for environment in self._environments:
+            environment.exit()
+        self._environments = []
 
     def exit(self):
-        self.exit_environment()
+        self.exit_environments()
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import numpy as np
+import skimage
 
 model, last_parameters = None, None
 
@@ -28,9 +29,10 @@ def segment(image, parameters) -> np.ndarray | None:
             or len(image.shape) == 3
             and image.shape[2] != 1
         ):
-            raise Exception(
-                f"The 2D_versatile_fluo can only process grayscale images ; image must be 2D with a single channel (image.shape is {image.shape})."
+            print(
+                f"Converting image to grayscale to use the {model_name} model."
             )
+            image = skimage.color.rgb2gray(image)
         if model_name.startswith("2D"):
             from stardist.models import StarDist2D  # type: ignore
 

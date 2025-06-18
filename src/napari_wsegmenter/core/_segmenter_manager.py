@@ -65,7 +65,7 @@ class SegmenterManager(SegmenterManagerBase):
 
     def exit(self):
         self.release_shared_memory()
-        self.exit_environment()
+        self.exit_environments()
 
 
 if __name__ == "__main__":

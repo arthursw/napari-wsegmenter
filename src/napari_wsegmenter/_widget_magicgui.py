@@ -22,7 +22,7 @@ PYTHON_VERSION = "3.10"
 SEGMENTERS_PATH = Path(__file__).resolve().parent / "core" / "segmenters"
 
 config = {
-    "Cellpose": {
+    "cellpose": {
         "dependencies": {
             "python": PYTHON_VERSION,
             "conda": ["cellpose==3.1.0"],
@@ -34,7 +34,7 @@ config = {
             "diameter": 30.0,
         },
     },
-    "StarDist": {
+    "stardist": {
         "dependencies": {
             "python": PYTHON_VERSION,
             "pip": ["tensorflow==2.16.1", "csbdeep==0.8.1", "stardist==0.9.1"],
@@ -54,7 +54,7 @@ config = {
         "segmenter_script_name": SEGMENTERS_PATH / "_stardist.py",
         "default_parameters": {"model_name": "2D_versatile_fluo"},
     },
-    "SAM": {
+    "sam": {
         "dependencies": {
             "python": PYTHON_VERSION,
             "conda": ["sam2==1.1.0", "huggingface_hub==0.29.2"],
@@ -70,7 +70,7 @@ config = {
 }
 
 environment_manager = None
-environment = None
+environments = []
 
 
 @thread_worker
@@ -82,7 +82,7 @@ def log_output(process: subprocess.Popen) -> None:
 
 
 def initialize_environment(name: str):
-    global environment_manager, environment
+    global environment_manager, environments
     if environment_manager is None:
         environment_manager = EnvironmentManager(
             str(WETLANDS_INSTALL_DIR / "pixi")
@@ -90,6 +90,8 @@ def initialize_environment(name: str):
     environment = environment_manager.create(
         name, config[name]["dependencies"]
     )
+    if environment not in environments:
+        environments.append(environment)
     launched = environment.launched()
     if not launched:
         environment.launch()
@@ -120,10 +122,12 @@ def segmenter_widget(
         return np.load(output_path)
 
 
-def exit_environment():
-    if environment is not None:
+def exit_environments():
+    global environments
+    for environment in environments:
         environment.exit()
+    environments = []
 
 
 # I need something like this
-segmenter_widget.closed.connect(exit_environment)
+segmenter_widget.closed.connect(exit_environments)

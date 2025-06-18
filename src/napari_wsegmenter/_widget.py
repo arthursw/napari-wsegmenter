@@ -62,7 +62,7 @@ class SegmenterWidget(QWidget):
 
     def segment(self):
         image_name = self._image_layer_combo.currentText()
-        segmenter = self._segmenter_combo.currentText()
+        segmenter = self._segmenter_combo.currentText().lower()
 
         if image_name not in self._viewer.layers:
             return
@@ -83,6 +83,6 @@ class SegmenterWidget(QWidget):
         else:
             self._viewer.add_labels(segmentation, name=name)
 
-    def closeEvent(self, a0):
+    def hideEvent(self, a0):
         self._segmenter_manager.exit()
-        super().closeEvent(a0)
+        super().hideEvent(a0)

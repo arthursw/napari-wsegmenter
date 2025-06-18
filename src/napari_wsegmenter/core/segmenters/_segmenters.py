@@ -1,3 +1,4 @@
+import argparse
 import sys
 from pathlib import Path
 
@@ -35,7 +36,6 @@ def segment_shared_memory(
 
 
 if __name__ == "__main__":
-    import argparse
 
     parser = argparse.ArgumentParser(
         "Segmenters",
@@ -73,15 +73,29 @@ if __name__ == "__main__":
         # Convert to grayscale, then back to RGB (clone gray component)
         image = np.array(image.convert("L").convert("RGB"))
 
+    parameters = {}
+    match args.segmenter:
+        case "stardist":
+            parameters = {"model_name": "2D_versatile_fluo"}
+        case "cellpose":
+            parameters = {
+                "model_type": "cyto3",
+                "use_gpu": False,
+                "diameter": 30.0,
+                "channels": [0, 0],
+            }
+        case "sam":
+            parameters = {
+                "use_gpu": False,
+                "points_per_side": 32,
+                "pred_iou_thresh": 0.88,
+                "stability_score_thresh": 0.95,
+            }
+
     segmentation = _segment(
-        "_sam",
+        f"_{args.segmenter}",
         image,
-        {
-            "use_gpu": False,
-            "points_per_side": 32,
-            "pred_iou_thresh": 0.88,
-            "stability_score_thresh": 0.95,
-        },
+        parameters,
     )
     if segmentation is not None:
         segmentation_path = (
