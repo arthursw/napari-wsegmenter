@@ -115,8 +115,8 @@ class SegmenterManagerBase:
             np.save(input_path, cast(np.ndarray, image.data))
             segmenter_module.segment_files(
                 self.config[segmenter]["module_name"],
-                input_path,
-                output_path,
+                str(input_path),
+                str(output_path),
                 self.config[segmenter]["default_parameters"],
             )
             return np.load(output_path)
