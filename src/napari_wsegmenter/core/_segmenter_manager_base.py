@@ -4,10 +4,10 @@ from pathlib import Path
 from typing import cast
 
 import numpy as np
-from napari.qt.threading import WorkerBase, thread_worker
+from napari.qt.threading import thread_worker
+
 from wetlands.environment import Environment
 from wetlands.environment_manager import EnvironmentManager
-from wetlands.external_environment import ExternalEnvironment
 
 WETLANDS_INSTALL_DIR = Path.home() / ".local" / "share" / "wetlands"
 WETLANDS_INSTALL_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,9 +86,7 @@ class SegmenterManagerBase:
     def _initialize_environment(self, name: str):
         config = self.config[name]
         if self._environment_manager is None:
-            self._environment_manager = EnvironmentManager(
-                str(WETLANDS_INSTALL_DIR / "pixi")
-            )
+            self._environment_manager = EnvironmentManager(debug=True)
         environment = self._environment_manager.create(
             name, config["dependencies"]
         )
@@ -98,12 +96,12 @@ class SegmenterManagerBase:
         if not launched:
             environment.launch()
         segmenter_module = environment.importModule(SEGMENTERS_PATH)
-        if not launched:
-            worker = cast(
-                WorkerBase,
-                log_output(cast(ExternalEnvironment, environment).process),
-            )
-            worker.start()
+        # if not launched:
+        #     worker = cast(
+        #         WorkerBase,
+        #         log_output(cast(ExternalEnvironment, environment).process),
+        #     )
+        #     worker.start()
         return segmenter_module
 
     def perform_segmentation(self, image: np.ndarray, segmenter: str):

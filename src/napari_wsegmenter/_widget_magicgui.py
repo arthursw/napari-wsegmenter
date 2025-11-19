@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, cast
 
 import numpy as np
 from magicgui import magicgui
-from napari.qt.threading import WorkerBase, thread_worker
+from napari.qt.threading import thread_worker
+
 from wetlands.environment_manager import EnvironmentManager
 
 if TYPE_CHECKING:
@@ -70,7 +71,6 @@ config = {
 }
 
 environment_manager = None
-environments = []
 
 
 @thread_worker
@@ -82,25 +82,21 @@ def log_output(process: subprocess.Popen) -> None:
 
 
 def initialize_environment(name: str):
-    global environment_manager, environments
+    global environment_manager
     if environment_manager is None:
-        environment_manager = EnvironmentManager(
-            str(WETLANDS_INSTALL_DIR / "pixi")
-        )
+        environment_manager = EnvironmentManager(debug=True)
     environment = environment_manager.create(
         name, config[name]["dependencies"]
     )
-    if environment not in environments:
-        environments.append(environment)
-    launched = environment.launched()
-    if not launched:
-        environment.launch()
+    # launched = environment.launched()
+    # if not launched:
+    environment.launch()
     segmenter_module = environment.importModule(
         str(config[name]["segmenter_script_name"])
     )
-    if not launched:
-        worker = cast(WorkerBase, log_output(segmenter_module.process))
-        worker.start()
+    # if not launched:
+    #     worker = cast(WorkerBase, log_output(segmenter_module.process))
+    #     worker.start()
     return segmenter_module
 
 
@@ -123,10 +119,11 @@ def segmenter_widget(
 
 
 def exit_environments():
-    global environments
-    for environment in environments:
+    global environment_manager
+    if environment_manager is None:
+        return
+    for _, environment in environment_manager.environments.items():
         environment.exit()
-    environments = []
 
 
 # I need something like this

@@ -28,7 +28,7 @@ dependencies = [
     "numpy",
     "magicgui",
     "qtpy",
-    "wetlands>=0.2.0",
+    "wetlands>=0.3.0",
 ]
 
 [project.optional-dependencies]

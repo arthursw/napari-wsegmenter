@@ -4,7 +4,7 @@ from multiprocessing import shared_memory
 import numpy as np
 
 
-def create_shared_array(shape: tuple, dtype: str | type):
+def create_shared_array(shape: tuple, dtype: str | np.dtype):
     # Create the shared memory
     shm = shared_memory.SharedMemory(
         create=True, size=int(np.prod(shape) * np.dtype(dtype).itemsize)
