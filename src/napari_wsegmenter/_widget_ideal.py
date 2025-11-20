@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 
 import numpy as np
 from magicgui import magicgui
+
 from wetlands.environment_manager import (  # type: ignore
     EnvironmentManager,
     environment,  # type: ignore
@@ -19,14 +20,13 @@ if TYPE_CHECKING:
     import napari
     import napari.types
 
-# Wetlands is initialized given:
-# - the environments object which describes the environments and their dependencies
-# - the commands object which describes the commands which can be called with EnvironmentManager.commandName()   (see EnvironmentManager.sam() at the end)
+# Wetlands is initialized given the environments object which describes the environments and their dependencies
 # Environments can be defined with a dict or a yml file
-# Commands define:
-# - an "environment" which is created and launched when the command is executed
-# - a "transfer" object which describes how the parameters are sent to the other process
-# - a "command" python_path that points to a fully qualified python callable
+# The "transfer" object describes how parameters are sent to the other process:
+# - "pickle": transfer any picklable object (default)
+# - "shared_memory_numpy": transfer a numpy array using shared memory
+# - "imageio": transfer an image using a temporary file and imageio
+# - ...
 EnvironmentManager.initialize(  # type: ignore
     {  # type: ignore          Use Wetlands.initialize instead of EnvironmentManager.initialize?
         "environments": {
@@ -36,15 +36,8 @@ EnvironmentManager.initialize(  # type: ignore
                     "conda": ["cellpose==3.1.0"],
                 },
             },
-            "StarDist": "stardist.yml",  # Also possible to provide a environment.yml
-            "SAM": "sam.yml",
-        },
-        "commands": {
-            "sam": {
-                "environment": "SAM",
-                "transfer": {"image": "shared_memory"},
-                "command": "segmenters._cellpose.segment",
-            }
+            "StarDist": "stardist/pyproject.toml",
+            "SAM": "sam/environment.yml",
         },
     }
 )
@@ -52,7 +45,7 @@ EnvironmentManager.initialize(  # type: ignore
 
 # The environment decorator enables to execute the decorated function in the given environment
 # The transfer argument defines how the parameters are sent to the process
-@environment(name="StarDist", transfer={"image": "file", "parameters": "pickle"})  # type: ignore
+@environment(name="StarDist", transfer={"image": "imageio", "parameters": "pickle"})  # type: ignore
 def stardist(Global, image, parameters):
 
     print("Loading libraries...")
@@ -81,7 +74,7 @@ def stardist(Global, image, parameters):
 
 
 # Decorated functions can import and use other modules
-@environment(name="Cellpose", transfer={"image": "shared_memory"})
+@environment(name="Cellpose", transfer={"image": "shared_memory_numpy"})
 def cellpose(Global, image, parameters):
     sys.path.append(str(Path(__file__).parent))
     import segmenters._cellpose  # type: ignore
@@ -112,14 +105,17 @@ def segmenter_widget(
                 },
             )
         case "sam":
-            return EnvironmentManager.sam(  # type: ignore
-                image,
-                {  # type: ignore
+
+            return EnvironmentManager.environments["sam"].execute(  # type: ignore
+                "segmenters._cellpose.segment",
+                {
+                    "image": image,
                     "use_gpu": False,
                     "points_per_side": 8,
                     "pred_iou_thresh": 0.88,
                     "stability_score_thresh": 0.95,
                 },
+                transfert={"image": "shared_memory_numpy"},
             )
 
         case _:
