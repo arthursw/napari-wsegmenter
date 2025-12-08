@@ -1,5 +1,6 @@
 """
 This is a minimalist example using magicgui, but I cannot find the close event to exit environments properly
+See widget.py for the fully featured plugin with shared memory
 """
 
 import subprocess
@@ -88,15 +89,10 @@ def initialize_environment(name: str):
     environment = environment_manager.create(
         name, config[name]["dependencies"]
     )
-    # launched = environment.launched()
-    # if not launched:
     environment.launch()
     segmenter_module = environment.importModule(
         str(config[name]["segmenter_script_name"])
     )
-    # if not launched:
-    #     worker = cast(WorkerBase, log_output(segmenter_module.process))
-    #     worker.start()
     return segmenter_module
 
 

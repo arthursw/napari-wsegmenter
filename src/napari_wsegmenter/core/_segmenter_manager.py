@@ -30,6 +30,7 @@ class SegmenterManager(SegmenterManagerBase):
                 self._shared_image.dtype == image.dtype
                 and self._shared_image.shape == image.shape
             ):
+                self._shared_image[:] = image[:]
                 return
             else:
                 self.release_shared_memory()

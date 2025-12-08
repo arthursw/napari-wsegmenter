@@ -15,6 +15,7 @@ from wetlands.environment_manager import (  # type: ignore
     EnvironmentManager,
     environment,  # type: ignore
 )
+from wetlands.ndarray import NDArray, initialize_ndarray
 
 if TYPE_CHECKING:
     import napari
@@ -22,13 +23,8 @@ if TYPE_CHECKING:
 
 # Wetlands is initialized given the environments object which describes the environments and their dependencies
 # Environments can be defined with a dict or a yml file
-# The "transfer" object describes how parameters are sent to the other process:
-# - "pickle": transfer any picklable object (default)
-# - "shared_memory_numpy": transfer a numpy array using shared memory
-# - "imageio": transfer an image using a temporary file and imageio
-# - ...
 EnvironmentManager.initialize(  # type: ignore
-    {  # type: ignore          Use Wetlands.initialize instead of EnvironmentManager.initialize?
+    {  # type: ignore
         "environments": {
             "Cellpose": {
                 "dependencies": {
@@ -45,7 +41,7 @@ EnvironmentManager.initialize(  # type: ignore
 
 # The environment decorator enables to execute the decorated function in the given environment
 # The transfer argument defines how the parameters are sent to the process
-@environment(name="StarDist", transfer={"image": "imageio", "parameters": "pickle"})  # type: ignore
+@environment(name="StarDist")  # type: ignore
 def stardist(Global, image, parameters):
 
     print("Loading libraries...")
@@ -69,17 +65,21 @@ def stardist(Global, image, parameters):
         return
 
     print("Computing segmentation")
-    labels, _ = Global.model.predict_instances(normalize(image))
+    labels, _ = Global.model.predict_instances(normalize(image.array))
     return labels
 
 
 # Decorated functions can import and use other modules
-@environment(name="Cellpose", transfer={"image": "shared_memory_numpy"})
+@environment(name="Cellpose")
 def cellpose(Global, image, parameters):
     sys.path.append(str(Path(__file__).parent))
     import segmenters._cellpose  # type: ignore
 
-    return segmenters._cellpose.segment(image, parameters)
+    return segmenters._cellpose.segment(image.array, parameters)
+
+
+shared_image: NDArray | None = None
+shared_segmentation: NDArray | None = None
 
 
 @magicgui(
@@ -90,13 +90,23 @@ def segmenter_widget(
     segmenter: "str",
 ) -> None | np.ndarray | "napari.types.LabelsData":
 
+    global shared_image, shared_segmentation
+
+    shared_image = initialize_ndarray(image.data, shared_image)
+    if shared_image is None:
+        return None
+    shared_segmentation = initialize_ndarray(
+        np.zeros(shared_image.array.shape, "uint8"), shared_segmentation
+    )
+
     # We can now make use of our decorated functions and commands
     match segmenter:
         case "stardist":
-            return stardist(image, {"model_name": "2D_versatile_fluo"})  # type: ignore
+            return stardist(shared_image, shared_segmentation, {"model_name": "2D_versatile_fluo"})  # type: ignore
         case "cellpose":
             return cellpose(
-                image,
+                shared_image,
+                shared_segmentation,
                 {  # type: ignore
                     "model_type": "cyto3",
                     "use_gpu": False,
@@ -107,19 +117,28 @@ def segmenter_widget(
         case "sam":
 
             return EnvironmentManager.environments["sam"].execute(  # type: ignore
-                "segmenters._cellpose.segment",
+                "segmenters._sam.segment",
                 {
-                    "image": image,
+                    "image": shared_image,
+                    "segmentation": shared_segmentation,
                     "use_gpu": False,
                     "points_per_side": 8,
                     "pred_iou_thresh": 0.88,
                     "stability_score_thresh": 0.95,
                 },
-                transfert={"image": "shared_memory_numpy"},
             )
 
         case _:
             raise Exception("Unknown segmenter")
 
+
+def exit_environments():
+    shared_image.dispose()
+    shared_segmentation.dispose()
+    EnvironmentManager.exit()
+
+
+# I need something like this
+segmenter_widget.closed.connect(exit_environments)
 
 # All environments are exited and shared memory freed when the widget is closed

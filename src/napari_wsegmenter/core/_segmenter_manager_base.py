@@ -96,12 +96,6 @@ class SegmenterManagerBase:
         if not launched:
             environment.launch()
         segmenter_module = environment.importModule(SEGMENTERS_PATH)
-        # if not launched:
-        #     worker = cast(
-        #         WorkerBase,
-        #         log_output(cast(ExternalEnvironment, environment).process),
-        #     )
-        #     worker.start()
         return segmenter_module
 
     def perform_segmentation(self, image: np.ndarray, segmenter: str):
