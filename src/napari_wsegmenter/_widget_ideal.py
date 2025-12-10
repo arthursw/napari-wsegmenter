@@ -1,144 +1,129 @@
-"""
-This is what _widget.py would look like with an ideal Wetlands
-
-All environments are exited and shared memory freed when the widget is closed
-"""
-
-import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from magicgui import magicgui
-
-from wetlands.environment_manager import (  # type: ignore
-    EnvironmentManager,
-    environment,  # type: ignore
-)
-from wetlands.ndarray import NDArray, initialize_ndarray
+from magicgui import magic_factory
+from napari import environemnt_manager
+from napari.types import LayerDataTuple
 
 if TYPE_CHECKING:
     import napari
     import napari.types
 
-# Wetlands is initialized given the environments object which describes the environments and their dependencies
-# Environments can be defined with a dict or a yml file
-EnvironmentManager.initialize(  # type: ignore
-    {  # type: ignore
-        "environments": {
-            "Cellpose": {
-                "dependencies": {
-                    "python": "3.10",
-                    "conda": ["cellpose==3.1.0"],
-                },
-            },
-            "StarDist": "stardist/pyproject.toml",
-            "SAM": "sam/environment.yml",
-        },
-    }
+SEGMENTERS_PATH = Path(__file__).resolve().parent
+
+env_cellpose = environemnt_manager.create(
+    "Cellpose",
+    {
+        "python": "3.10",
+        "pip": ["wetlands==0.4.4"],
+        "conda": ["cellpose==3.1.0"],
+    },
 )
-
-
-# The environment decorator enables to execute the decorated function in the given environment
-# The transfer argument defines how the parameters are sent to the process
-@environment(name="StarDist")  # type: ignore
-def stardist(Global, image, parameters):
-
-    print("Loading libraries...")
-    from csbdeep.utils import normalize  # type: ignore
-
-    if (
-        Global.last_parameters is None
-        or Global.last_parameters["model_name"] != parameters["model_name"]
-    ):
-        model_name = parameters["model_name"]
-        if model_name.startswith("2D"):
-            from stardist.models import StarDist2D  # type: ignore
-
-            Global.model = StarDist2D.from_pretrained(model_name)
-        else:
-            from stardist.models import StarDist3D  # type: ignore
-
-            Global.model = StarDist3D.from_pretrained(model_name)
-    Global.last_parameters = parameters
-    if Global.model is None:
-        return
-
-    print("Computing segmentation")
-    labels, _ = Global.model.predict_instances(normalize(image.array))
-    return labels
-
-
-# Decorated functions can import and use other modules
-@environment(name="Cellpose")
-def cellpose(Global, image, parameters):
-    sys.path.append(str(Path(__file__).parent))
-    import segmenters._cellpose  # type: ignore
-
-    return segmenters._cellpose.segment(image.array, parameters)
-
-
-shared_image: NDArray | None = None
-shared_segmentation: NDArray | None = None
-
-
-@magicgui(
-    segmenter={"choices": ["stardist", "cellpose", "sam"]},
+env_stardist = environemnt_manager.create(
+    "StarDist",
+    {
+        "python": "3.10",
+        "pip": [
+            "wetlands==0.4.4",
+            "tensorflow==2.16.1",
+            "csbdeep==0.8.1",
+            "stardist==0.9.1",
+        ],
+    },
 )
-def segmenter_widget(
+env_sam = environemnt_manager.create(
+    "SAM",
+    {
+        "python": "3.10",
+        "pip": ["wetlands==0.4.4", "sam2==1.1.0", "huggingface_hub==0.29.2"],
+    },
+)
+for env in [env_cellpose, env_stardist, env_sam]:
+    env.launch()
+
+
+@magic_factory(model_type={"choices": ["cyto3", "cyto2", "nuclei"]})
+def cellpose(
     image: "napari.types.ImageData",
-    segmenter: "str",
-) -> None | np.ndarray | "napari.types.LabelsData":
-
-    global shared_image, shared_segmentation
-
-    shared_image = initialize_ndarray(image.data, shared_image)
-    if shared_image is None:
-        return None
-    shared_segmentation = initialize_ndarray(
-        np.zeros(shared_image.array.shape, "uint8"), shared_segmentation
+    model_type="cyto3",
+    use_gpu: bool = True,
+    diameter: float = 30.0,
+) -> LayerDataTuple:
+    segmentation = np.zeros(image.shape, "uint8")
+    env_cellpose.execute(
+        SEGMENTERS_PATH / "_cellpose.py",
+        "segment",
+        (
+            image,
+            segmentation,
+            {
+                "model_type": model_type,
+                "use_gpu": use_gpu,
+                "diameter": diameter,
+                "channels": [0, 0],
+            },
+        ),
+    )
+    return cast(
+        LayerDataTuple,
+        (segmentation, {"name": "Cellpose segmentation"}, "labels"),
     )
 
-    # We can now make use of our decorated functions and commands
-    match segmenter:
-        case "stardist":
-            return stardist(shared_image, shared_segmentation, {"model_name": "2D_versatile_fluo"})  # type: ignore
-        case "cellpose":
-            return cellpose(
-                shared_image,
-                shared_segmentation,
-                {  # type: ignore
-                    "model_type": "cyto3",
-                    "use_gpu": False,
-                    "diameter": 30.0,
-                    "channels": [0, 0],
-                },
-            )
-        case "sam":
 
-            return EnvironmentManager.environments["sam"].execute(  # type: ignore
-                "segmenters._sam.segment",
-                {
-                    "image": shared_image,
-                    "segmentation": shared_segmentation,
-                    "use_gpu": False,
-                    "points_per_side": 8,
-                    "pred_iou_thresh": 0.88,
-                    "stability_score_thresh": 0.95,
-                },
-            )
-
-        case _:
-            raise Exception("Unknown segmenter")
+@magic_factory(
+    model_name={"choices": ["2D_versatile_fluo", "2D_paper_dsb2018"]}
+)
+def stardist(
+    image: "napari.types.ImageData", model_name="2D_versatile_fluo"
+) -> LayerDataTuple:
+    segmentation = np.zeros(image.shape, "uint8")
+    env_stardist.execute(
+        SEGMENTERS_PATH / "_stardist.py",
+        "segment",
+        (
+            image,
+            segmentation,
+            {"model_name": model_name},
+        ),
+    )
+    return cast(
+        LayerDataTuple,
+        (
+            segmentation,
+            {"name": "Stardist segmentation"},
+            "labels",
+        ),
+    )
 
 
-def exit_environments():
-    shared_image.dispose()
-    shared_segmentation.dispose()
-    EnvironmentManager.exit()
+@magic_factory()
+def sam(
+    image: "napari.types.ImageData",
+    use_gpu: bool = True,
+    points_per_side: int = 8,
+    pred_iou_thresh: float = 0.88,
+    stability_score_thresh: float = 0.95,
+) -> LayerDataTuple:
+    segmentation = np.zeros(image.shape, "uint8")
+    env_sam.execute(
+        SEGMENTERS_PATH / "_sam.py",
+        "segment",
+        (
+            image,
+            segmentation,
+            {
+                "use_gpu": use_gpu,
+                "points_per_side": points_per_side,
+                "pred_iou_thresh": pred_iou_thresh,
+                "stability_score_thresh": stability_score_thresh,
+            },
+        ),
+    )
+    return cast(
+        LayerDataTuple,
+        (segmentation, {"name": "SAM segmentation"}, "labels"),
+    )
 
 
-# I need something like this
-segmenter_widget.closed.connect(exit_environments)
-
-# All environments are exited and shared memory freed when the widget is closed
+# Env and shared memory would be cleaned on plugin exit

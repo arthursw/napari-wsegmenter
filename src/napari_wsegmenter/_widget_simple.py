@@ -1,31 +1,48 @@
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 import numpy as np
-from magicgui import magicgui
+from magicgui import magic_factory
+from napari.types import LayerDataTuple
 
 from wetlands.environment_manager import (  # type: ignore
     EnvironmentManager,  # type: ignore
 )
-from wetlands.ndarray import NDArray, initialize_ndarray
+from wetlands.ndarray import NDArray, update_ndarray
 
 if TYPE_CHECKING:
     import napari
     import napari.types
 
-environemnt_manager = EnvironmentManager()
+SEGMENTERS_PATH = Path(__file__).resolve().parent
+
+environemnt_manager = EnvironmentManager(debug=True)
 env_cellpose = environemnt_manager.create(
-    "Cellpose", {"python": "3.10", "conda": ["cellpose==3.1.0"]}
+    "Cellpose",
+    {
+        "python": "3.10",
+        "pip": ["wetlands==0.4.4"],
+        "conda": ["cellpose==3.1.0"],
+    },
 )
 env_stardist = environemnt_manager.create(
     "StarDist",
     {
         "python": "3.10",
-        "pip": ["tensorflow==2.16.1", "csbdeep==0.8.1", "stardist==0.9.1"],
+        "pip": [
+            "wetlands==0.4.4",
+            "tensorflow==2.16.1",
+            "csbdeep==0.8.1",
+            "stardist==0.9.1",
+        ],
     },
 )
 env_sam = environemnt_manager.create(
     "SAM",
-    {"python": "3.10", "conda": ["sam2==1.1.0", "huggingface_hub==0.29.2"]},
+    {
+        "python": "3.10",
+        "pip": ["wetlands==0.4.4", "sam2==1.1.0", "huggingface_hub==0.29.2"],
+    },
 )
 for env in [env_cellpose, env_stardist, env_sam]:
     env.launch()
@@ -34,27 +51,27 @@ shared_image: NDArray | None = None
 shared_segmentation: NDArray | None = None
 
 
-def initialize_images(image: "napari.types.ImageData"):
+def update_shared_memory(image: "napari.types.ImageData"):
     global shared_image, shared_segmentation
-    shared_image = initialize_ndarray(image.data, shared_image)
-    if shared_image is None:
-        return None
-    shared_segmentation = initialize_ndarray(
-        np.zeros(shared_image.array.shape, "uint8"), shared_segmentation
+    if image is None:
+        return
+    shared_image = update_ndarray(image, shared_image)
+    shared_segmentation = update_ndarray(
+        np.zeros(image.shape[:-1], "uint8"), shared_segmentation
     )
 
 
-@magicgui(model_type={"choices": ["cyto3", "cyto2", "nuclei"]})
+@magic_factory(model_type={"choices": ["cyto3", "cyto2", "nuclei"]})
 def cellpose(
     image: "napari.types.ImageData",
-    model_type: str = "cyto3",
+    model_type="cyto3",
     use_gpu: bool = True,
     diameter: float = 30.0,
-) -> None | np.ndarray | "napari.types.LabelsData":
+) -> LayerDataTuple:
     global shared_image, shared_segmentation
-    initialize_images(image)
+    update_shared_memory(image)
     env_cellpose.execute(
-        "segmenters._cellpose.py",
+        SEGMENTERS_PATH / "_cellpose.py",
         "segment",
         (
             shared_image,
@@ -67,17 +84,28 @@ def cellpose(
             },
         ),
     )
-    return shared_segmentation.array
+    if shared_segmentation is None:
+        raise Exception("The shared segmentation is not initialized.")
+    return cast(
+        LayerDataTuple,
+        (
+            shared_segmentation.array,
+            {"name": "Cellpose segmentation"},
+            "labels",
+        ),
+    )
 
 
-@magicgui(model_name={"choices": ["2D_versatile_fluo", "2D_paper_dsb2018"]})
+@magic_factory(
+    model_name={"choices": ["2D_versatile_fluo", "2D_paper_dsb2018"]}
+)
 def stardist(
-    image: "napari.types.ImageData", model_name: str = "2D_versatile_fluo"
-) -> None | np.ndarray | "napari.types.LabelsData":
+    image: "napari.types.ImageData", model_name="2D_versatile_fluo"
+) -> LayerDataTuple:
     global shared_image, shared_segmentation
-    initialize_images(image)
+    update_shared_memory(image)
     env_stardist.execute(
-        "segmenters._stardist.py",
+        SEGMENTERS_PATH / "_stardist.py",
         "segment",
         (
             shared_image,
@@ -85,21 +113,31 @@ def stardist(
             {"model_name": model_name},
         ),
     )
-    return shared_segmentation.array
+    if shared_segmentation is None:
+        raise Exception("The shared segmentation is not initialized.")
+
+    return cast(
+        LayerDataTuple,
+        (
+            shared_segmentation.array,
+            {"name": "Stardist segmentation"},
+            "labels",
+        ),
+    )
 
 
-@magicgui()
+@magic_factory()
 def sam(
     image: "napari.types.ImageData",
     use_gpu: bool = True,
     points_per_side: int = 8,
     pred_iou_thresh: float = 0.88,
     stability_score_thresh: float = 0.95,
-) -> None | np.ndarray | "napari.types.LabelsData":
+) -> LayerDataTuple:
     global shared_image, shared_segmentation
-    initialize_images(image)
+    update_shared_memory(image)
     env_sam.execute(
-        "segmenters._sam.py",
+        SEGMENTERS_PATH / "_sam.py",
         "segment",
         (
             shared_image,
@@ -112,10 +150,15 @@ def sam(
             },
         ),
     )
-    return shared_segmentation.array
+    if shared_segmentation is None:
+        raise Exception("The shared segmentation is not initialized.")
+    return cast(
+        LayerDataTuple,
+        (shared_segmentation.array, {"name": "SAM segmentation"}, "labels"),
+    )
 
 
-@magicgui(
+@magic_factory(
     call_button="Exit plugin",
 )
 def exit_button():
@@ -123,8 +166,10 @@ def exit_button():
 
 
 def exit_environments():
-    shared_image.dispose()
-    shared_segmentation.dispose()
+    if shared_image is not None:
+        shared_image.dispose()
+    if shared_segmentation is not None:
+        shared_segmentation.dispose()
     environemnt_manager.exit()
 
 

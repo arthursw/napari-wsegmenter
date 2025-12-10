@@ -18,7 +18,7 @@ def _create_segmentation(annotations):
 predictor, mask_generator, last_parameters = None, None, None
 
 
-def segment(image, parameters):
+def segment(ndimage, ndsegmentation, parameters):
     import torch  # type: ignore
     from sam2.automatic_mask_generator import (  # type: ignore
         SAM2AutomaticMaskGenerator,  # type: ignore
@@ -27,6 +27,7 @@ def segment(image, parameters):
 
     global predictor, mask_generator, last_parameters
 
+    image = ndimage.array
     device = "cuda" if parameters["use_gpu"] else "cpu"
     if (
         predictor is None
@@ -53,4 +54,5 @@ def segment(image, parameters):
         print("Perform segmentation")
         masks = mask_generator.generate(image)
         print("Convert segmentation")
-        return _create_segmentation(masks)
+        ndsegmentation.array[:] = _create_segmentation(masks)[:]
+        return
