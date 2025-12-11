@@ -17,6 +17,15 @@ contributions:
     - id: napari-wsegmenter.make_exit_button
       python_name: napari_wsegmenter:exit_button
       title: Make exit button
+    - id: napari-wsegmenter.make_cellpose_qw
+      python_name: napari_wsegmenter:CellposeWidget
+      title: Make cellpose widget
+    - id: napari-wsegmenter.make_stardist_qw
+      python_name: napari_wsegmenter:StardistWidget
+      title: Make stardist widget
+    - id: napari-wsegmenter.make_sam_qw
+      python_name: napari_wsegmenter:SamWidget
+      title: Make sam widget
   widgets:
     - command: napari-wsegmenter.make_cellpose
       display_name: Cellpose segmenter
@@ -26,3 +35,17 @@ contributions:
       display_name: SAM segmenter
     - command: napari-wsegmenter.make_exit_button
       display_name: Exit
+    - command: napari-wsegmenter.make_cellpose_qw
+      display_name: Cellpose qwidget
+    - command: napari-wsegmenter.make_stardist_qw
+      display_name: Stardist qwidget
+    - command: napari-wsegmenter.make_sam_qw
+      display_name: Sam qwidget
+  menus:
+    napari/layers/segment:
+      - command: napari-wsegmenter.make_cellpose
+      - command: napari-wsegmenter.make_stardist
+      - command: napari-wsegmenter.make_sam
+      - command: napari-wsegmenter.make_cellpose_qw
+      - command: napari-wsegmenter.make_stardist_qw
+      - command: napari-wsegmenter.make_sam_qw

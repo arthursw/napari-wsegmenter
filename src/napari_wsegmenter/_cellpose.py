@@ -1,8 +1,9 @@
 model, last_parameters = None, None
 
 
-def segment(ndimage, ndsegmentation, parameters):
-    image = ndimage.array
+def segment(ndimage, parameters):
+    # image = ndimage.array
+    image = ndimage
     print("Loading libraries...")
     import cellpose.io  # type: ignore
     import cellpose.models  # type: ignore
@@ -27,5 +28,7 @@ def segment(ndimage, ndsegmentation, parameters):
     masks, flows, styles, diams = model.eval(
         image, diameter=parameters["diameter"], channels=parameters["channels"]
     )
-    ndsegmentation.array[:] = masks[:]
-    return
+    # ndsegmentation.array[:] = masks[:]
+    # ndsegmentation.close()
+    # ndimage.close()
+    return masks
