@@ -1,11 +1,8 @@
 import logging
 
 import numpy as np
-import pytest
 
-from napari_wsegmenter._widget import (
-    SegmenterWidget,
-)
+from napari_wsegmenter._widget_simple import cellpose, exit_environments
 
 # Configure logging
 logging.basicConfig(
@@ -14,38 +11,13 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.parametrize(
-    "shape, model_name, shared_memory",
-    [
-        ((100, 100), "StarDist", False),
-        ((64, 64), "Cellpose", True),
-        ((128, 128, 3), "SAM", True),
-    ],
-)
-def test_segmenter_widget(
-    make_napari_viewer, shape, model_name, shared_memory
-):
-    # make viewer and add an image layer using our fixture
+def test_cellpose(make_napari_viewer):
     viewer = make_napari_viewer()
-    viewer.add_image(np.random.randint(0, 255, shape).astype(np.uint8))
+    layer = viewer.add_image(np.random.random((100, 100)))
 
-    # create our widget, passing in the viewer
-    widget = SegmenterWidget(viewer)
-    widget._segmenter_combo.setCurrentText(model_name)
-    widget._update_image_layers()
-    widget._image_layer_combo.setCurrentIndex(0)
-    widget._shared_memory_checkbox.setChecked(shared_memory)
+    my_widget = cellpose()
 
-    # call our widget method
-    widget.segment()
+    segmentation, _, _ = my_widget(viewer.layers[0].data)
+    assert segmentation.shape == layer.data.shape[:2]
 
-    segmented_layers = [
-        layer
-        for layer in viewer.layers
-        if layer.__class__.__name__ == "Labels"
-        and layer.name.endswith("_segmented")
-    ]
-
-    assert segmented_layers[0].data.shape == shape[:2]
-
-    widget.hideEvent(None)
+    exit_environments()
