@@ -8,6 +8,12 @@ contributions:
     - id: napari-wsegmenter.make_cellpose
       python_name: napari_wsegmenter:cellpose
       title: Make Cellpose
+    - id: napari-wsegmenter.make_cellpose_pickle
+      python_name: napari_wsegmenter:cellpose_pickle
+      title: Make Cellpose pickle
+    - id: napari-wsegmenter.make_cellpose_local
+      python_name: napari_wsegmenter:cellpose_local
+      title: Make Cellpose local
     - id: napari-wsegmenter.make_stardist
       python_name: napari_wsegmenter:stardist
       title: Make Stardist
@@ -29,6 +35,10 @@ contributions:
   widgets:
     - command: napari-wsegmenter.make_cellpose
       display_name: Cellpose segmenter
+    - command: napari-wsegmenter.make_cellpose_pickle
+      display_name: Cellpose segmenter pickle
+    - command: napari-wsegmenter.make_cellpose_local
+      display_name: Cellpose segmenter local
     - command: napari-wsegmenter.make_stardist
       display_name: Stardist segmenter
     - command: napari-wsegmenter.make_sam
@@ -44,6 +54,8 @@ contributions:
   menus:
     napari/layers/segment:
       - command: napari-wsegmenter.make_cellpose
+      - command: napari-wsegmenter.make_cellpose_local
+      - command: napari-wsegmenter.make_cellpose_pickle
       - command: napari-wsegmenter.make_stardist
       - command: napari-wsegmenter.make_sam
       - command: napari-wsegmenter.make_cellpose_qw

@@ -2,12 +2,12 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import numpy as np
 from magicgui import magic_factory
 from napari.types import LayerDataTuple
+from qtpy.QtWidgets import QMessageBox
 
 from wetlands.environment_manager import EnvironmentManager
-from wetlands.ndarray import NDArray
+from wetlands.ndarray import NDArray, update_ndarray
 
 if TYPE_CHECKING:
     import napari
@@ -24,10 +24,10 @@ logging.getLogger("wetlands").setLevel(logging.DEBUG)
 # This should be provided by Napari
 # Use debug=True to be able to debug envs
 # See https://arthursw.github.io/wetlands/latest/debugging/
-environemnt_manager = EnvironmentManager(debug=True)
+environment_manager = EnvironmentManager(debug=True)
 
 # Create the environments
-env_cellpose = environemnt_manager.create(
+env_cellpose = environment_manager.create(
     "Cellpose",
     {
         "python": PYTHON_VERSION,
@@ -36,7 +36,7 @@ env_cellpose = environemnt_manager.create(
         "conda": ["cellpose==3.1.0"],
     },
 )
-env_stardist = environemnt_manager.create(
+env_stardist = environment_manager.create(
     "StarDist",
     {
         "python": PYTHON_VERSION,
@@ -48,7 +48,7 @@ env_stardist = environemnt_manager.create(
         ],
     },
 )
-env_sam = environemnt_manager.create(
+env_sam = environment_manager.create(
     "SAM",
     {
         "python": PYTHON_VERSION,
@@ -59,35 +59,37 @@ env_sam = environemnt_manager.create(
 for env in [env_cellpose, env_stardist, env_sam]:
     env.launch()
 
-# # Global shared memory objects are used to avoid allocating shared memory when processing the same image multiple times
-# # The cellpose_simple() ignores this complexity and just allocate shared memory each time
-# shared_image: NDArray | None = None
-# # The shared segmentation is created on this side,
-# # but it could also be created in the environment
-# # as in the ndarray example https://arthursw.github.io/wetlands/latest/shared_memory/#ndarray-example
-# shared_segmentation: NDArray | None = None
-
-shared_image: np.ndarray | None = None
-shared_segmentation: np.ndarray | None = None
+# Global shared memory objects are used to avoid allocating shared memory when processing the same image multiple times
+# The cellpose_simple() ignores this complexity and just allocate shared memory each time
+shared_image: NDArray | None = None
+# The shared segmentation is created on this side,
+# but it could also be created in the environment
+# as in the ndarray example https://arthursw.github.io/wetlands/latest/shared_memory/#ndarray-example
+shared_segmentation: NDArray | None = None
 
 
 # Helper to return a LayerDataTuple
-# def layer(ndarray: NDArray | None, name: str, layer_type: str = "labels") -> LayerDataTuple:
+# Copy the shared_memory since it will eventually be unlinked
 def layer(
-    ndarray: np.ndarray | None, name: str, layer_type: str = "labels"
+    ndarray: NDArray | None, name: str, layer_type: str = "labels"
 ) -> LayerDataTuple:
     if ndarray is None:
         raise Exception("NDArray is undefined.")
-    # return cast(LayerDataTuple, (ndarray.array, {"name": name}, layer_type))
-    return cast(LayerDataTuple, (ndarray, {"name": name}, layer_type))
+    return cast(
+        LayerDataTuple, (ndarray.array.copy(), {"name": name}, layer_type)
+    )
 
 
+# Update the gloabl ndarrays from the image
+# (create if size or dtype differs, update otherwise)
 def update_shared_memory(image: "napari.types.ImageData"):
     global shared_image, shared_segmentation
-    # shared_image = update_ndarray(image, shared_image)
-    # shared_segmentation = update_ndarray(shape=image.shape[:2], dtype="uint8", ndarray=shared_segmentation)
-    shared_image = image
-    shared_segmentation = np.zeros(image.shape[:2], dtype="uint8")
+    # Create or update the shared memory from the image data
+    shared_image = update_ndarray(image, shared_image)
+    # Create a shared memory for the segmentation if necessary
+    shared_segmentation = update_ndarray(
+        shape=image.shape[:2], dtype="uint8", ndarray=shared_segmentation
+    )
 
 
 # Computes the Cellpose segmentation using the global shared memory
@@ -99,12 +101,12 @@ def cellpose(
     diameter: float = 30.0,
 ) -> LayerDataTuple:
     update_shared_memory(image)
-    shared_segmentation = env_cellpose.execute(
+    env_cellpose.execute(
         SEGMENTERS_PATH / "_cellpose.py",
         "segment",
         (
             shared_image,
-            # shared_segmentation,
+            shared_segmentation,
             {
                 "model_type": model_type,
                 "use_gpu": use_gpu,
@@ -116,25 +118,26 @@ def cellpose(
     return layer(shared_segmentation, "Cellpose segmentation")
 
 
-# Same as cellpose() but simpler because it creates a new shared memory each time
-# Instead, it uses the context manager which frees the shared memory on return
+# Same as cellpose() but simpler because it creates a new shared memory each time,
+# instead of the global vars.
+# It uses the context manager which frees the shared memory on return.
 @magic_factory(model_type={"choices": ["cyto3", "cyto2", "nuclei"]})
-def cellpose_simple(
+def cellpose_local(
     image: "napari.types.ImageData",
     model_type="cyto3",
     use_gpu: bool = False,
     diameter: float = 30.0,
 ) -> LayerDataTuple:
     with (
-        NDArray(image) as shared_image,
-        NDArray(np.zeros(image.shape, "uint8")) as shared_segmentation,
+        NDArray(image) as ndimage,
+        NDArray(shape=image.shape[:2], dtype="uint8") as ndsegmentation,
     ):
-        shared_segmentation = env_cellpose.execute(
+        env_cellpose.execute(
             SEGMENTERS_PATH / "_cellpose.py",
             "segment",
             (
-                shared_image,
-                # shared_segmentation,
+                ndimage,
+                ndsegmentation,
                 {
                     "model_type": model_type,
                     "use_gpu": use_gpu,
@@ -143,7 +146,35 @@ def cellpose_simple(
                 },
             ),
         )
-        return layer(shared_segmentation, "Cellpose segmentation")
+        return layer(ndsegmentation, "Cellpose segmentation")
+
+
+# Same as cellpose_local() but even simpler because it does not use shared memory
+# Instead, it pickles the image (sent with TCP socket)
+# Note that it call segment_array(), not segment()
+@magic_factory(model_type={"choices": ["cyto3", "cyto2", "nuclei"]})
+def cellpose_pickle(
+    image: "napari.types.ImageData",
+    model_type="cyto3",
+    use_gpu: bool = False,
+    diameter: float = 30.0,
+) -> LayerDataTuple:
+    segmentation = env_cellpose.execute(
+        SEGMENTERS_PATH / "_cellpose.py",
+        "segment_array",
+        (
+            image,
+            {
+                "model_type": model_type,
+                "use_gpu": use_gpu,
+                "diameter": diameter,
+                "channels": [0, 0],
+            },
+        ),
+    )
+    return cast(
+        LayerDataTuple, (segmentation, {"name": "Segmentation"}, "labels")
+    )
 
 
 # Computes the StarDist segmentation using the global shared memory
@@ -154,12 +185,12 @@ def stardist(
     image: "napari.types.ImageData", model_name="2D_versatile_fluo"
 ) -> LayerDataTuple:
     update_shared_memory(image)
-    shared_segmentation = env_stardist.execute(
+    env_stardist.execute(
         SEGMENTERS_PATH / "_stardist.py",
         "segment",
         (
             shared_image,
-            # shared_segmentation,
+            shared_segmentation,
             {"model_name": model_name},
         ),
     )
@@ -176,12 +207,12 @@ def sam(
     stability_score_thresh: float = 0.95,
 ) -> LayerDataTuple:
     update_shared_memory(image)
-    shared_segmentation = env_sam.execute(
+    env_sam.execute(
         SEGMENTERS_PATH / "_sam.py",
         "segment",
         (
             shared_image,
-            # shared_segmentation,
+            shared_segmentation,
             {
                 "use_gpu": use_gpu,
                 "points_per_side": points_per_side,
@@ -198,21 +229,19 @@ def sam(
 )
 def exit_button():
     exit_environments()
+    QMessageBox.critical(
+        None,
+        "Warning",
+        "All environments are exited and shared memory is unlinked. The plugin will not work anymore.",
+    )
 
 
 def exit_environments():
-    global shared_image, shared_segmentation
     if shared_image is not None:
-        # shared_image.close()
-        # shared_image.unlink()
-        # shared_image.dispose(unregister=True)
-        shared_image = None
+        shared_image.dispose()
     if shared_segmentation is not None:
-        # shared_segmentation.close()
-        # shared_segmentation.unlink()
-        # shared_segmentation.dispose(unregister=True)
-        shared_segmentation = None
-    environemnt_manager.exit()
+        shared_segmentation.dispose()
+    environment_manager.exit()
 
 
 # I need something like this

@@ -90,7 +90,7 @@ class BaseSegmenterWidget(QWidget):
 
         if self.shared_segmentation:
             self.viewer.add_labels(
-                self.shared_segmentation.array,
+                self.shared_segmentation.array.copy(),
                 name=f"{self.ENV_NAME} segmentation",
             )
 
