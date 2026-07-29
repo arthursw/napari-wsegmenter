@@ -1,58 +1,92 @@
 # napari-wsegmenter
 
 [![License MIT](https://img.shields.io/pypi/l/napari-wsegmenter.svg?color=green)](https://github.com/arthursw/napari-wsegmenter/raw/main/LICENSE)
-<!-- [![PyPI](https://img.shields.io/pypi/v/napari-wsegmenter.svg?color=green)](https://pypi.org/project/napari-wsegmenter) -->
-<!-- [![Python Version](https://img.shields.io/pypi/pyversions/napari-wsegmenter.svg?color=green)](https://python.org) -->
-<!-- [![tests](https://github.com/arthursw/napari-wsegmenter/workflows/tests/badge.svg)](https://github.com/arthursw/napari-wsegmenter/actions) -->
-<!-- [![codecov](https://codecov.io/gh/arthursw/napari-wsegmenter/branch/main/graph/badge.svg)](https://codecov.io/gh/arthursw/napari-wsegmenter) -->
-<!-- [![napari hub](https://img.shields.io/endpoint?url=https://api.napari-hub.org/shields/napari-wsegmenter)](https://napari-hub.org/plugins/napari-wsegmenter) -->
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
-[![Copier](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/copier-org/copier/master/img/badge/badge-grayscale-inverted-border-purple.json)](https://github.com/copier-org/copier)
 
-Segment images using either Stardist, Cellpose or SAM.
+Segment images with Cellpose, StarDist, or SAM 2 while keeping their dependencies out of the environment that runs napari.
 
-The plugin uses [Wetlands](https://arthursw.github.io/wetlands/latest/) to install each tool (Stardist, Cellpose and SAM) in isolated environment, and execute segmentations in those environments.
+This branch is the integration example for napari-managed plugin environments.
+It requires the corresponding napari and npe2 feature branches and, until Wetlands 2 is published, a local editable installation of Wetlands 2 in the napari development environment.
+The plugin itself does not import or depend on Wetlands.
+Wetlands is a private execution backend behind napari-owned task, progress, failure, and lifecycle APIs.
 
-----------------------------------
+## How dependency isolation works
 
-## Installation
+The installed `napari-wsegmenter` host package contains only the Qt widgets and napari integration.
+It depends on NumPy and QtPy, and importing it does not import Cellpose, TensorFlow, StarDist, SAM, PyTorch, or Wetlands.
 
-<!-- You can install `napari-wsegmenter` via [pip]:
+The plugin manifest declares a separate managed environment for each segmenter.
+It also associates each worker command with its environment:
 
-    pip install napari-wsegmenter
- -->
+- `napari-wsegmenter.cellpose_worker` runs with Cellpose;
+- `napari-wsegmenter.stardist_worker` runs with TensorFlow and StarDist;
+- `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
 
-To install latest development version :
+The small worker distribution in `src/napari_wsegmenter/worker-package` is shipped as plugin package data and installed into each managed environment.
+Worker entry points are qualified Python targets.
+They accept a NumPy image and a plain parameter dictionary, then return a NumPy labels array.
+They do not import napari GUI APIs.
 
-    pip install git+https://github.com/arthursw/napari-wsegmenter.git
+The widget calls `napari.plugins.execute_worker_command`, reports preparation and execution updates, exposes cancellation, presents failures through napari notifications, and adds returned labels in the main napari process.
+Napari owns provisioning, worker reuse, transport, and shutdown.
 
-## Installation, usage & development
+## Installation and first run
 
-You can launch napari with the plugin by running `uv run python launch_napari.py`.
+Install this plugin into a napari environment that contains the managed-environment feature:
 
-## Contributing
+```sh
+pip install -e .
+```
 
-Contributions are very welcome. Tests can be run with [tox], please ensure
-the coverage at least stays the same before you submit a pull request.
+Opening a segmenter widget is side-effect-free.
+The first Run provisions that segmenter's environment and may take several minutes while packages and model assets are downloaded.
+The widget displays provisioning and execution progress and can request cancellation.
+Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
+Changing the recipe causes napari to build a new environment generation.
 
-### Tests
+The three segmenters are intentionally isolated from one another.
+Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
 
-To test the project locally, use uv to install the testing optional dependencies: `uv pip install ".[testing]"`
-Then run tox: `uv run tox run`
+## Packaging contract
 
-Test with `uv` and `ipdb`: `uv run pytest --pdb --pdbcls=IPython.terminal.debugger:TerminalPdb tests`
-Use `--last-failed` to only re-run the failures: `uv run pytest --pdb --pdbcls=IPython.terminal.debugger:TerminalPdb --last-failed tests`
+Plugin GUI and napari integration code must remain lightweight enough to install in the napari environment.
+Dependencies needed only by worker functionality belong in `contributions.environments`, not in the host package dependencies.
+The worker distribution must be included in both the source distribution and wheel because its `local_packages` path is resolved relative to the installed manifest.
+
+Existing napari plugins continue to run in the host process unless they opt into managed worker commands.
+Isolation can only be guaranteed for dependencies installed through napari-managed environments; users can still manually install conflicting packages into the napari environment.
+
+Managed environments isolate Python dependencies, but they are not security sandboxes.
+Worker code is trusted plugin code and retains the user's filesystem, network, process, GPU, and credential access.
+
+## Usage
+
+Select an image layer, open one of the Cellpose, StarDist, or SAM dock widgets, choose parameters, and click Run.
+Returned labels are added as a napari Labels layer.
+
+For local development, launch all three widgets with:
+
+```sh
+uv run python launch_napari.py
+```
+
+## Development and tests
+
+Install the testing dependencies and run the documented test suite:
+
+```sh
+uv sync --extra testing
+uv run tox run
+```
+
+The unit tests replace heavy frameworks and the napari runtime task with fakes.
+They verify lazy imports, ordinary NumPy inputs and outputs, progress, cancellation, failures, and result-layer creation without provisioning multi-gigabyte environments.
+A real end-to-end smoke test should be run from the matching napari and npe2 feature branches before release.
 
 ## License
 
-Distributed under the terms of the [MIT] license,
-"napari-wsegmenter" is free and open source software
+Distributed under the terms of the [MIT license](LICENSE).
 
 ## Issues
 
-If you encounter any problems, please [file an issue] along with a detailed description.
-
-[@napari]: https://github.com/napari
-[MIT]: http://opensource.org/licenses/MIT
-[tox]: https://tox.readthedocs.io/en/latest/
-[file an issue]: https://github.com/arthursw/napari-wsegmenter/issues
+Please [file an issue](https://github.com/arthursw/napari-wsegmenter/issues) with a detailed description of any problem.
