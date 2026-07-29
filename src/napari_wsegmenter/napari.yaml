@@ -4,60 +4,74 @@ display_name: WSegmenter
 visibility: public
 categories: ["Segmentation"]
 contributions:
+  environments:
+    - id: napari-wsegmenter.cellpose
+      python: "3.10.*"
+      conda:
+        - cellpose==3.1.0
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker-package
+          editable: false
+          extras: []
+    - id: napari-wsegmenter.stardist
+      python: "3.10.*"
+      pypi:
+        - tensorflow==2.16.1
+        - csbdeep==0.8.1
+        - stardist==0.9.1
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker-package
+          editable: false
+          extras: []
+    - id: napari-wsegmenter.sam
+      python: "3.10.*"
+      pypi:
+        - sam2==1.1.0
+        - huggingface-hub==0.29.2
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker-package
+          editable: false
+          extras: []
   commands:
-    - id: napari-wsegmenter.make_cellpose
-      python_name: napari_wsegmenter:cellpose
-      title: Make Cellpose
-    - id: napari-wsegmenter.make_cellpose_pickle
-      python_name: napari_wsegmenter:cellpose_pickle
-      title: Make Cellpose pickle
-    - id: napari-wsegmenter.make_cellpose_local
-      python_name: napari_wsegmenter:cellpose_local
-      title: Make Cellpose local
-    - id: napari-wsegmenter.make_stardist
-      python_name: napari_wsegmenter:stardist
-      title: Make Stardist
-    - id: napari-wsegmenter.make_sam
-      python_name: napari_wsegmenter:sam
-      title: Make Sam
-    - id: napari-wsegmenter.make_exit_button
-      python_name: napari_wsegmenter:exit_button
-      title: Make exit button
-    - id: napari-wsegmenter.make_cellpose_qw
+    - id: napari-wsegmenter.cellpose_worker
+      python_name: napari_wsegmenter_worker:segment_cellpose
+      title: Segment with Cellpose
+      environment: napari-wsegmenter.cellpose
+      accepts_worker_context: true
+    - id: napari-wsegmenter.stardist_worker
+      python_name: napari_wsegmenter_worker:segment_stardist
+      title: Segment with StarDist
+      environment: napari-wsegmenter.stardist
+      accepts_worker_context: true
+    - id: napari-wsegmenter.sam_worker
+      python_name: napari_wsegmenter_worker:segment_sam
+      title: Segment with SAM
+      environment: napari-wsegmenter.sam
+      accepts_worker_context: true
+    - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget
-      title: Make cellpose widget
-    - id: napari-wsegmenter.make_stardist_qw
+      title: Make Cellpose widget
+    - id: napari-wsegmenter.make_stardist_widget
       python_name: napari_wsegmenter:StardistWidget
-      title: Make stardist widget
-    - id: napari-wsegmenter.make_sam_qw
+      title: Make StarDist widget
+    - id: napari-wsegmenter.make_sam_widget
       python_name: napari_wsegmenter:SamWidget
-      title: Make sam widget
+      title: Make SAM widget
   widgets:
-    - command: napari-wsegmenter.make_cellpose
-      display_name: Cellpose segmenter
-    - command: napari-wsegmenter.make_cellpose_pickle
-      display_name: Cellpose segmenter pickle
-    - command: napari-wsegmenter.make_cellpose_local
-      display_name: Cellpose segmenter local
-    - command: napari-wsegmenter.make_stardist
-      display_name: Stardist segmenter
-    - command: napari-wsegmenter.make_sam
-      display_name: SAM segmenter
-    - command: napari-wsegmenter.make_exit_button
-      display_name: Exit
-    - command: napari-wsegmenter.make_cellpose_qw
-      display_name: Cellpose qwidget
-    - command: napari-wsegmenter.make_stardist_qw
-      display_name: Stardist qwidget
-    - command: napari-wsegmenter.make_sam_qw
-      display_name: Sam qwidget
+    - command: napari-wsegmenter.make_cellpose_widget
+      display_name: Cellpose
+    - command: napari-wsegmenter.make_stardist_widget
+      display_name: StarDist
+    - command: napari-wsegmenter.make_sam_widget
+      display_name: SAM
   menus:
     napari/layers/segment:
-      - command: napari-wsegmenter.make_cellpose
-      - command: napari-wsegmenter.make_cellpose_local
-      - command: napari-wsegmenter.make_cellpose_pickle
-      - command: napari-wsegmenter.make_stardist
-      - command: napari-wsegmenter.make_sam
-      - command: napari-wsegmenter.make_cellpose_qw
-      - command: napari-wsegmenter.make_stardist_qw
-      - command: napari-wsegmenter.make_sam_qw
+      - command: napari-wsegmenter.make_cellpose_widget
+      - command: napari-wsegmenter.make_stardist_widget
+      - command: napari-wsegmenter.make_sam_widget

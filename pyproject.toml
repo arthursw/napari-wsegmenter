@@ -26,9 +26,7 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "magicgui",
     "qtpy",
-    "wetlands>=0.4.10,<0.5",
 ]
 
 [project.optional-dependencies]
@@ -61,7 +59,12 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml"]
+napari_wsegmenter = [
+    "*.yaml",
+    "worker-package/README.md",
+    "worker-package/pyproject.toml",
+    "worker-package/src/napari_wsegmenter_worker/*.py",
+]
 
 
 [tool.setuptools_scm]
@@ -90,7 +93,6 @@ lint.select = [
 ]
 lint.ignore = [
     "E501", # line too long. let black handle this
-    "UP006", "UP007", # type annotation. As using magicgui require runtime type annotation then we disable this.
     "SIM117", # flake8-simplify - some of merged with statements are not looking great with black, reanble after drop python 3.9
 ]
 
