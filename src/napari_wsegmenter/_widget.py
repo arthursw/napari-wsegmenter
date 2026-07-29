@@ -87,12 +87,8 @@ class BaseSegmenterWidget(QWidget):
             return
 
         self._task = task
-        task.events.started.connect(self._on_started)
-        task.events.progress.connect(self._on_progress)
-        task.events.returned.connect(self._on_returned)
-        task.events.errored.connect(self._on_errored)
-        task.events.canceled.connect(self._on_canceled)
-        task.events.finished.connect(self._on_finished)
+        task.add_progress_callback(self._on_progress)
+        task.add_done_callback(self._on_done)
 
     def cancel(self) -> None:
         if self._task is None:
@@ -105,36 +101,35 @@ class BaseSegmenterWidget(QWidget):
         self.run_button.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
 
-    def _on_started(self, _event: Any) -> None:
-        self.status_label.setText("Running segmentation…")
-
-    def _on_progress(self, event: Any) -> None:
-        progress = event.value
+    def _on_progress(self, progress: Any) -> None:
         message = getattr(progress, "message", None)
         if message:
             self.status_label.setText(str(message))
 
-    def _on_returned(self, event: Any) -> None:
-        labels = event.value
+    def _on_returned(self, labels: Any) -> None:
         if labels is None:
             return
         self.viewer.add_labels(np.asarray(labels), name=self.RESULT_NAME)
         self.status_label.setText("Segmentation complete.")
-
-    def _on_errored(self, event: Any) -> None:
-        self._on_error(event.value)
 
     def _on_error(self, error: Any) -> None:
         message = f"{self.RESULT_NAME} failed: {error}"
         self.status_label.setText(message)
         _show_error(message)
 
-    def _on_canceled(self, _event: Any) -> None:
-        self.status_label.setText("Segmentation canceled.")
-
-    def _on_finished(self, _event: Any) -> None:
-        self._task = None
-        self._set_busy(False)
+    def _on_done(self, task: Any) -> None:
+        try:
+            state = task.state.value
+            if state == "completed":
+                self._on_returned(task.result())
+            elif state == "canceled":
+                self.status_label.setText("Segmentation canceled.")
+            else:
+                self._on_error(task.error or "Unknown worker failure")
+        finally:
+            if self._task is task:
+                self._task = None
+                self._set_busy(False)
 
 
 class CellposeWidget(BaseSegmenterWidget):

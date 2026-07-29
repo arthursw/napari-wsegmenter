@@ -8,33 +8,37 @@ import numpy as np
 from napari_wsegmenter import CellposeWidget, _widget
 
 
-class FakeSignal:
-    def __init__(self) -> None:
-        self.callbacks = []
-
-    def connect(self, callback) -> None:
-        self.callbacks.append(callback)
-
-    def emit(self, value=None) -> None:
-        event = SimpleNamespace(value=value)
-        for callback in self.callbacks:
-            callback(event)
-
-
 class FakeTask:
     def __init__(self) -> None:
-        self.events = SimpleNamespace(
-            started=FakeSignal(),
-            progress=FakeSignal(),
-            returned=FakeSignal(),
-            errored=FakeSignal(),
-            canceled=FakeSignal(),
-            finished=FakeSignal(),
-        )
+        self.state = SimpleNamespace(value="running")
+        self.error = None
+        self._result = None
+        self._done_callbacks = []
+        self._progress_callbacks = []
         self.cancel_calls = 0
 
     def cancel(self) -> None:
         self.cancel_calls += 1
+
+    def add_progress_callback(self, callback) -> None:
+        self._progress_callbacks.append(callback)
+
+    def add_done_callback(self, callback) -> None:
+        self._done_callbacks.append(callback)
+
+    def progress(self, update) -> None:
+        for callback in self._progress_callbacks:
+            callback(update)
+
+    def finish(self, state, *, result=None, error=None) -> None:
+        self.state = SimpleNamespace(value=state)
+        self._result = result
+        self.error = error
+        for callback in self._done_callbacks:
+            callback(self)
+
+    def result(self):
+        return self._result
 
 
 def test_widget_runs_worker_and_adds_returned_labels(
@@ -61,14 +65,13 @@ def test_widget_runs_worker_and_adds_returned_labels(
     assert not widget.run_button.isEnabled()
     assert widget.cancel_button.isEnabled()
 
-    task.events.progress.emit(
+    task.progress(
         SimpleNamespace(message="Installing Cellpose", current=1, maximum=2)
     )
     assert widget.status_label.text() == "Installing Cellpose"
 
     labels = np.ones(image.shape, dtype=np.int32)
-    task.events.returned.emit(labels)
-    task.events.finished.emit()
+    task.finish("completed", result=labels)
 
     np.testing.assert_array_equal(viewer.layers[-1].data, labels)
     assert viewer.layers[-1].name == "Cellpose segmentation"
@@ -90,8 +93,7 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     widget.run()
 
     widget.cancel_button.click()
-    task.events.canceled.emit()
-    task.events.finished.emit()
+    task.finish("canceled")
 
     assert task.cancel_calls == 1
     assert widget.status_label.text() == "Segmentation canceled."
@@ -112,8 +114,7 @@ def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
     widget = CellposeWidget(viewer)
     widget.run()
 
-    task.events.errored.emit(RuntimeError("model download failed"))
-    task.events.finished.emit()
+    task.finish("failed", error=RuntimeError("model download failed"))
 
     assert errors == ["Cellpose segmentation failed: model download failed"]
     assert "model download failed" in widget.status_label.text()
@@ -125,6 +126,35 @@ def test_widget_requires_an_active_layer(make_napari_viewer):
     widget.run()
 
     assert widget.status_label.text() == "Select an image layer first."
+    assert widget.run_button.isEnabled()
+
+
+def test_widget_handles_task_completed_before_callbacks_are_added(
+    make_napari_viewer, monkeypatch
+):
+    viewer = make_napari_viewer()
+    viewer.add_image(np.zeros((4, 4)))
+    labels = np.ones((4, 4), dtype=np.int32)
+
+    class CompletedTask(FakeTask):
+        def __init__(self):
+            super().__init__()
+            self.state = SimpleNamespace(value="completed")
+            self._result = labels
+
+        def add_done_callback(self, callback) -> None:
+            callback(self)
+
+    monkeypatch.setattr(
+        _widget,
+        "_execute_worker_command",
+        lambda *args, **kwargs: CompletedTask(),
+    )
+    widget = CellposeWidget(viewer)
+
+    widget.run()
+
+    np.testing.assert_array_equal(viewer.layers[-1].data, labels)
     assert widget.run_button.isEnabled()
 
 
