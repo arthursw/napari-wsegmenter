@@ -116,8 +116,28 @@ def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
 
     task.finish("failed", error=RuntimeError("model download failed"))
 
-    assert errors == ["Cellpose segmentation failed: model download failed"]
+    assert errors == []
     assert "model download failed" in widget.status_label.text()
+
+
+def test_widget_presents_submission_failure(make_napari_viewer, monkeypatch):
+    viewer = make_napari_viewer()
+    viewer.add_image(np.zeros((4, 4)))
+    errors = []
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("worker command is unavailable")
+
+    monkeypatch.setattr(_widget, "_execute_worker_command", fail)
+    monkeypatch.setattr(_widget, "_show_error", errors.append)
+    widget = CellposeWidget(viewer)
+
+    widget.run()
+
+    assert errors == [
+        "Cellpose segmentation failed: worker command is unavailable"
+    ]
+    assert widget.run_button.isEnabled()
 
 
 def test_widget_requires_an_active_layer(make_napari_viewer):

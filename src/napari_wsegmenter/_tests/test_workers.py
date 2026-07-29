@@ -21,14 +21,14 @@ from napari_wsegmenter_worker import (  # noqa: E402
 class FakeContext:
     def __init__(self, *, canceled: bool = False) -> None:
         self.cancel_requested = canceled
-        self.updates: list[tuple[str, float | None, float | None]] = []
+        self.updates: list[tuple[str, int | None, int | None]] = []
 
     def update(
         self,
         message: str,
         *,
-        current: float | None = None,
-        maximum: float | None = None,
+        current: int | None = None,
+        maximum: int | None = None,
     ) -> None:
         self.updates.append((message, current, maximum))
 

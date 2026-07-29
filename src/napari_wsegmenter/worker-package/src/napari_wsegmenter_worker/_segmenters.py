@@ -13,16 +13,16 @@ class WorkerContext(Protocol):
         self,
         message: str,
         *,
-        current: float | None = None,
-        maximum: float | None = None,
+        current: int | None = None,
+        maximum: int | None = None,
     ) -> None: ...
 
 
 def _update(
     context: WorkerContext | None,
     message: str,
-    current: float,
-    maximum: float,
+    current: int,
+    maximum: int,
 ) -> bool:
     if context is None:
         return False

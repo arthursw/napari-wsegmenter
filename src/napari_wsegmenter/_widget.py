@@ -82,7 +82,7 @@ class BaseSegmenterWidget(QWidget):
                 parameters,
             )
         except (ImportError, KeyError, RuntimeError, ValueError) as error:
-            self._on_error(error)
+            self._on_error(error, notify=True)
             self._set_busy(False)
             return
 
@@ -112,10 +112,11 @@ class BaseSegmenterWidget(QWidget):
         self.viewer.add_labels(np.asarray(labels), name=self.RESULT_NAME)
         self.status_label.setText("Segmentation complete.")
 
-    def _on_error(self, error: Any) -> None:
+    def _on_error(self, error: Any, *, notify: bool = False) -> None:
         message = f"{self.RESULT_NAME} failed: {error}"
         self.status_label.setText(message)
-        _show_error(message)
+        if notify:
+            _show_error(message)
 
     def _on_done(self, task: Any) -> None:
         try:
