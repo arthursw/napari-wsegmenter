@@ -20,8 +20,8 @@ contributions:
       python: "3.10.*"
       pypi:
         - tensorflow==2.16.1
-        - csbdeep==0.8.1
-        - stardist==0.9.1
+        - csbdeep==0.8.2
+        - stardist==0.9.2
       channels:
         - conda-forge
       local_packages:
