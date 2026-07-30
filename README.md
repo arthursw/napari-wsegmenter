@@ -70,11 +70,14 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 Select an image layer, open one of the Cellpose, StarDist, or SAM dock widgets, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
 
-For local development, launch all three widgets with:
+For local development, launch napari with:
 
 ```sh
 uv run python launch_napari.py
 ```
+
+Open the segmenter you want from **Plugins > WSegmenter**.
+The menu action owns each dock widget's creation and then toggles the same widget rather than creating duplicates.
 
 ## Development and tests
 
