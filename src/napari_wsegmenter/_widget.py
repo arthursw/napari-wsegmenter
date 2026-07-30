@@ -10,6 +10,7 @@ from qtpy.QtWidgets import (
     QFormLayout,
     QHBoxLayout,
     QLabel,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -54,6 +55,10 @@ class BaseSegmenterWidget(QWidget):
         self.status_label = QLabel("Ready")
         self.status_label.setWordWrap(True)
 
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.hide()
+
         buttons = QHBoxLayout()
         buttons.addWidget(self.run_button)
         buttons.addWidget(self.cancel_button)
@@ -61,6 +66,7 @@ class BaseSegmenterWidget(QWidget):
         layout = QVBoxLayout()
         layout.addLayout(form)
         layout.addLayout(buttons)
+        layout.addWidget(self.progress_bar)
         layout.addWidget(self.status_label)
         self.setLayout(layout)
 
@@ -100,11 +106,25 @@ class BaseSegmenterWidget(QWidget):
     def _set_busy(self, busy: bool) -> None:
         self.run_button.setEnabled(not busy)
         self.cancel_button.setEnabled(busy)
+        self.progress_bar.setVisible(busy)
+        if busy:
+            self.progress_bar.setRange(0, 0)
+        else:
+            self.progress_bar.reset()
 
     def _on_progress(self, progress: Any) -> None:
         message = getattr(progress, "message", None)
         if message:
             self.status_label.setText(str(message))
+        current = getattr(progress, "current", None)
+        total = getattr(progress, "total", None)
+        if total is None:
+            total = getattr(progress, "maximum", None)
+        if current is None or total is None:
+            self.progress_bar.setRange(0, 0)
+            return
+        self.progress_bar.setRange(0, max(0, int(total)))
+        self.progress_bar.setValue(max(0, int(current)))
 
     def _on_returned(self, labels: Any) -> None:
         if labels is None:

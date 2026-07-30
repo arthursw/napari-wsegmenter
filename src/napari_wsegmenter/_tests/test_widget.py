@@ -83,11 +83,16 @@ def test_widget_runs_worker_and_adds_returned_labels(
     assert calls[0][1][1]["model_type"] == "cyto3"
     assert not widget.run_button.isEnabled()
     assert widget.cancel_button.isEnabled()
+    assert not widget.progress_bar.isHidden()
+    assert widget.progress_bar.minimum() == 0
+    assert widget.progress_bar.maximum() == 0
 
     task.progress(
-        SimpleNamespace(message="Installing Cellpose", current=1, maximum=2)
+        SimpleNamespace(message="Installing Cellpose", current=1, total=2)
     )
     assert widget.status_label.text() == "Installing Cellpose"
+    assert widget.progress_bar.maximum() == 2
+    assert widget.progress_bar.value() == 1
 
     labels = np.ones(image.shape, dtype=np.int32)
     task.finish("completed", result=labels)
@@ -97,6 +102,7 @@ def test_widget_runs_worker_and_adds_returned_labels(
     assert widget.status_label.text() == "Segmentation complete."
     assert widget.run_button.isEnabled()
     assert not widget.cancel_button.isEnabled()
+    assert widget.progress_bar.isHidden()
 
 
 def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
