@@ -22,7 +22,8 @@ It also associates each worker command with its environment:
 - `napari-wsegmenter.stardist_worker` runs with TensorFlow and StarDist;
 - `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
 
-The small worker distribution in `src/napari_wsegmenter/worker-package` is shipped as plugin package data and installed into each managed environment.
+The worker code is a single module in the two-file embedded project at `src/napari_wsegmenter/worker`.
+The outer `napari-wsegmenter` wheel ships that project as package data, and napari installs it into each managed environment without publishing a second package.
 Worker entry points are qualified Python targets.
 They accept a NumPy image and a plain parameter dictionary, then return a NumPy labels array.
 They do not import napari GUI APIs.
@@ -38,7 +39,7 @@ Install this plugin into a napari environment that contains the managed-environm
 pip install -e .
 ```
 
-Opening a segmenter widget is side-effect-free.
+Each environment has the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
 The first Run provisions that segmenter's environment and may take several minutes while packages and model assets are downloaded.
 The widget displays provisioning and execution progress and can request cancellation.
 Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
@@ -56,8 +57,13 @@ Meta documents Linux as its supported platform; macOS arm64 CPU execution is val
 
 Plugin GUI and napari integration code must remain lightweight enough to install in the napari environment.
 Dependencies needed only by worker functionality belong in `contributions.environments`, not in the host package dependencies.
-The worker distribution must be included in both the source distribution and wheel because its `local_packages` path is resolved relative to the installed manifest.
-Its distribution version must change whenever worker code changes so package-build caches cannot reuse an older worker artifact.
+The manifest is authoritative for worker runtime dependencies, including NumPy.
+The embedded worker project's dependency list is deliberately empty; its `pyproject.toml` exists only to make the adjacent `napari_wsegmenter_worker.py` module an installable qualified target.
+
+The embedded project must be included in both the source distribution and wheel because its `local_packages` path is resolved relative to the installed manifest.
+Its internal distribution version must remain synchronized with plugin releases until local-source content participates directly in every package-build cache key.
+Plugin authors expose installed `module:callable` targets.
+Filesystem path execution and backend transport are not part of the napari plugin API.
 
 Existing napari plugins continue to run in the host process unless they opt into managed worker commands.
 Isolation can only be guaranteed for dependencies installed through napari-managed environments; users can still manually install conflicting packages into the napari environment.
