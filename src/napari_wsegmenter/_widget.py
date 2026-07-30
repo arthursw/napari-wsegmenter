@@ -38,9 +38,9 @@ class BaseSegmenterWidget(QWidget):
     COMMAND_ID = ""
     RESULT_NAME = "Segmentation"
 
-    def __init__(self, viewer: napari.Viewer) -> None:
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
         super().__init__()
-        self.viewer = viewer
+        self.viewer = napari_viewer
         self._task: Any = None
 
     def _set_content(self, form: QFormLayout, run_label: str) -> None:
@@ -137,8 +137,8 @@ class CellposeWidget(BaseSegmenterWidget):
     COMMAND_ID = "napari-wsegmenter.cellpose_worker"
     RESULT_NAME = "Cellpose segmentation"
 
-    def __init__(self, viewer: napari.Viewer) -> None:
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
         self.model_type = QComboBox()
         self.model_type.addItems(["cyto3", "cyto2", "nuclei"])
@@ -170,8 +170,8 @@ class StardistWidget(BaseSegmenterWidget):
     COMMAND_ID = "napari-wsegmenter.stardist_worker"
     RESULT_NAME = "StarDist segmentation"
 
-    def __init__(self, viewer: napari.Viewer) -> None:
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
         self.model_name = QComboBox()
         self.model_name.addItems(["2D_versatile_fluo", "2D_paper_dsb2018"])
@@ -188,8 +188,8 @@ class SamWidget(BaseSegmenterWidget):
     COMMAND_ID = "napari-wsegmenter.sam_worker"
     RESULT_NAME = "SAM segmentation"
 
-    def __init__(self, viewer: napari.Viewer) -> None:
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
         self.use_gpu = QCheckBox()
 

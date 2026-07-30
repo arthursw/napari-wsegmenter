@@ -4,8 +4,15 @@ import sys
 from types import SimpleNamespace
 
 import numpy as np
+import pytest
+from napari._qt.qt_main_window import _instantiate_dock_widget
 
-from napari_wsegmenter import CellposeWidget, _widget
+from napari_wsegmenter import (
+    CellposeWidget,
+    SamWidget,
+    StardistWidget,
+    _widget,
+)
 
 
 class FakeTask:
@@ -39,6 +46,18 @@ class FakeTask:
 
     def result(self):
         return self._result
+
+
+@pytest.mark.parametrize(
+    "widget_class",
+    [CellposeWidget, StardistWidget, SamWidget],
+)
+def test_napari_injects_viewer_into_widget(widget_class, make_napari_viewer):
+    viewer = make_napari_viewer()
+
+    widget = _instantiate_dock_widget(widget_class, viewer)
+
+    assert widget.viewer.layers is not None
 
 
 def test_widget_runs_worker_and_adds_returned_labels(
