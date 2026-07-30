@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from napari._qt.qt_main_window import _instantiate_dock_widget
+from qtpy.QtWidgets import QApplication
 
 from napari_wsegmenter import (
     CellposeWidget,
@@ -88,7 +89,12 @@ def test_widget_runs_worker_and_adds_returned_labels(
     assert widget.progress_bar.maximum() == 0
 
     task.progress(
-        SimpleNamespace(message="Installing Cellpose", current=1, total=2)
+        SimpleNamespace(
+            message="Installing Cellpose",
+            phase=SimpleNamespace(value="provisioning"),
+            current=1,
+            total=2,
+        )
     )
     assert widget.status_label.text() == "Installing Cellpose"
     assert widget.progress_bar.maximum() == 2
@@ -103,6 +109,10 @@ def test_widget_runs_worker_and_adds_returned_labels(
     assert widget.run_button.isEnabled()
     assert not widget.cancel_button.isEnabled()
     assert widget.progress_bar.isHidden()
+    history = widget.history.toPlainText()
+    assert "[preparing] Preparing plugin environment." in history
+    assert "[provisioning] Installing Cellpose (1/2)" in history
+    assert "[completed] Segmentation complete." in history
 
 
 def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
@@ -123,6 +133,9 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     assert task.cancel_calls == 1
     assert widget.status_label.text() == "Segmentation canceled."
     assert widget.run_button.isEnabled()
+    history = widget.history.toPlainText()
+    assert "[cancel] Cancellation requested." in history
+    assert "[canceled] Segmentation canceled." in history
 
 
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
@@ -143,6 +156,8 @@ def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
 
     assert errors == []
     assert "model download failed" in widget.status_label.text()
+    assert "[failed]" in widget.history.toPlainText()
+    assert "model download failed" in widget.history.toPlainText()
 
 
 def test_widget_presents_submission_failure(make_napari_viewer, monkeypatch):
@@ -163,6 +178,7 @@ def test_widget_presents_submission_failure(make_napari_viewer, monkeypatch):
         "Cellpose segmentation failed: worker command is unavailable"
     ]
     assert widget.run_button.isEnabled()
+    assert "worker command is unavailable" in widget.history.toPlainText()
 
 
 def test_widget_requires_an_active_layer(make_napari_viewer):
@@ -172,6 +188,21 @@ def test_widget_requires_an_active_layer(make_napari_viewer):
 
     assert widget.status_label.text() == "Select an image layer first."
     assert widget.run_button.isEnabled()
+    assert "[input] No image layer selected." in widget.history.toPlainText()
+
+
+def test_widget_history_can_be_copied_and_cleared(make_napari_viewer):
+    widget = CellposeWidget(make_napari_viewer())
+    widget._append_history("A useful detail.", phase="testing")
+
+    widget.copy_history_button.click()
+
+    assert QApplication.clipboard().text() == widget.history.toPlainText()
+    assert "[testing] A useful detail." in QApplication.clipboard().text()
+
+    widget.clear_history_button.click()
+
+    assert widget.history.toPlainText() == ""
 
 
 def test_widget_handles_task_completed_before_callbacks_are_added(

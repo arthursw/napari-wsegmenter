@@ -69,6 +69,7 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 
 Select an image layer, open one of the Cellpose, StarDist, or SAM dock widgets, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
+Each widget keeps a scrollable task history with timestamps, lifecycle phases, progress, and failures that can be copied or cleared.
 
 For local development, launch napari with:
 
