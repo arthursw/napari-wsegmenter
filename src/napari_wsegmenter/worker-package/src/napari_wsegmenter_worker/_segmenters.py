@@ -127,6 +127,22 @@ _sam_mask_generator: Any = None
 _sam_generator_key: tuple[Any, ...] | None = None
 
 
+def _sam_rgb_image(image: np.ndarray) -> np.ndarray:
+    """Return an HWC RGB array accepted by SAM 2."""
+    worker_image = np.asarray(image)
+    if worker_image.ndim == 2:
+        return np.repeat(worker_image[..., np.newaxis], 3, axis=-1)
+    if worker_image.ndim != 3:
+        raise ValueError("SAM 2 requires a 2D grayscale or RGB image.")
+    if worker_image.shape[-1] == 1:
+        return np.repeat(worker_image, 3, axis=-1)
+    if worker_image.shape[-1] == 3:
+        return worker_image
+    if worker_image.shape[-1] == 4:
+        return worker_image[..., :3]
+    raise ValueError("SAM 2 requires a grayscale, RGB, or RGBA image.")
+
+
 def segment_sam(
     image: np.ndarray,
     parameters: dict[str, Any],
@@ -141,6 +157,8 @@ def segment_sam(
 
     if _update(napari_context, "Loading SAM 2", 0, 4):
         return None
+
+    worker_image = _sam_rgb_image(image)
 
     import torch
     from sam2.automatic_mask_generator import SAM2AutomaticMaskGenerator
@@ -181,12 +199,12 @@ def segment_sam(
             dtype=torch.bfloat16,
         ),
     ):
-        annotations = _sam_mask_generator.generate(np.asarray(image))
+        annotations = _sam_mask_generator.generate(worker_image)
 
     if _update(napari_context, "Combining masks", 2, 4):
         return None
 
-    labels = np.zeros(np.asarray(image).shape[:2], dtype=np.int32)
+    labels = np.zeros(worker_image.shape[:2], dtype=np.int32)
     for index, annotation in enumerate(annotations, start=1):
         if napari_context is not None and napari_context.cancel_requested:
             return None

@@ -6,6 +6,7 @@ from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
 import numpy as np
+import pytest
 
 WORKER_SOURCE = Path(__file__).parents[1] / "worker-package" / "src"
 sys.path.insert(0, str(WORKER_SOURCE))
@@ -110,8 +111,20 @@ def test_stardist_worker_keeps_heavy_imports_inside_call(monkeypatch):
     np.testing.assert_array_equal(result, expected)
 
 
-def test_sam_worker_returns_labels(monkeypatch):
-    image = np.zeros((4, 4, 3), dtype=np.uint8)
+@pytest.mark.parametrize(
+    ("image", "expected_image"),
+    [
+        (
+            np.zeros((4, 4), dtype=np.uint8),
+            np.zeros((4, 4, 3), dtype=np.uint8),
+        ),
+        (
+            np.zeros((4, 4, 3), dtype=np.uint8),
+            np.zeros((4, 4, 3), dtype=np.uint8),
+        ),
+    ],
+)
+def test_sam_worker_returns_labels(monkeypatch, image, expected_image):
     first_mask = np.zeros((4, 4), dtype=bool)
     first_mask[:2, :2] = True
     second_mask = np.zeros((4, 4), dtype=bool)
@@ -123,7 +136,7 @@ def test_sam_worker_returns_labels(monkeypatch):
             assert kwargs["points_per_side"] == 8
 
         def generate(self, value):
-            np.testing.assert_array_equal(value, image)
+            np.testing.assert_array_equal(value, expected_image)
             return [
                 {"segmentation": first_mask},
                 {"segmentation": second_mask},
@@ -164,6 +177,15 @@ def test_sam_worker_returns_labels(monkeypatch):
     assert result is not None
     np.testing.assert_array_equal(result[:2, :2], 1)
     assert result[3, 3] == 2
+
+
+def test_sam_worker_rejects_non_image_array():
+    with pytest.raises(ValueError, match="2D grayscale or RGB"):
+        segment_sam(
+            np.zeros((2, 3, 4, 5), dtype=np.uint8),
+            {},
+            napari_context=FakeContext(),
+        )
 
 
 def test_worker_stops_before_heavy_import_when_canceled():

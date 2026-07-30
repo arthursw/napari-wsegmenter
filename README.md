@@ -47,11 +47,17 @@ Changing the recipe causes napari to build a new environment generation.
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
 
+The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
+Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.
+The worker converts 2D grayscale images to RGB before calling SAM 2.
+Meta documents Linux as its supported platform; macOS arm64 CPU execution is validated here as an integration example but remains outside Meta's upstream support statement.
+
 ## Packaging contract
 
 Plugin GUI and napari integration code must remain lightweight enough to install in the napari environment.
 Dependencies needed only by worker functionality belong in `contributions.environments`, not in the host package dependencies.
 The worker distribution must be included in both the source distribution and wheel because its `local_packages` path is resolved relative to the installed manifest.
+Its distribution version must change whenever worker code changes so package-build caches cannot reuse an older worker artifact.
 
 Existing napari plugins continue to run in the host process unless they opt into managed worker commands.
 Isolation can only be guaranteed for dependencies installed through napari-managed environments; users can still manually install conflicting packages into the napari environment.
