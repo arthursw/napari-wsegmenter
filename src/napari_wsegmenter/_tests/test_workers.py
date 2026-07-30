@@ -8,15 +8,14 @@ from types import ModuleType, SimpleNamespace
 import numpy as np
 import pytest
 
-WORKER_SOURCE = Path(__file__).parents[1] / "worker-package" / "src"
+WORKER_SOURCE = Path(__file__).parents[1] / "worker"
 sys.path.insert(0, str(WORKER_SOURCE))
 
-from napari_wsegmenter_worker import (  # noqa: E402
-    _segmenters,  # noqa: E402
-    segment_cellpose,
-    segment_sam,
-    segment_stardist,
-)
+import napari_wsegmenter_worker as worker_module  # noqa: E402
+
+segment_cellpose = worker_module.segment_cellpose
+segment_sam = worker_module.segment_sam
+segment_stardist = worker_module.segment_stardist
 
 
 class FakeContext:
@@ -52,8 +51,8 @@ def test_cellpose_worker_uses_arrays_and_reports_progress(monkeypatch):
         "cellpose",
         SimpleNamespace(models=SimpleNamespace(Cellpose=FakeCellpose)),
     )
-    monkeypatch.setattr(_segmenters, "_cellpose_model", None)
-    monkeypatch.setattr(_segmenters, "_cellpose_model_key", None)
+    monkeypatch.setattr(worker_module, "_cellpose_model", None)
+    monkeypatch.setattr(worker_module, "_cellpose_model_key", None)
     context = FakeContext()
 
     result = segment_cellpose(
@@ -99,8 +98,8 @@ def test_stardist_worker_keeps_heavy_imports_inside_call(monkeypatch):
     monkeypatch.setitem(sys.modules, "csbdeep.utils", csbdeep_utils)
     monkeypatch.setitem(sys.modules, "stardist", stardist)
     monkeypatch.setitem(sys.modules, "stardist.models", stardist_models)
-    monkeypatch.setattr(_segmenters, "_stardist_model", None)
-    monkeypatch.setattr(_segmenters, "_stardist_model_name", None)
+    monkeypatch.setattr(worker_module, "_stardist_model", None)
+    monkeypatch.setattr(worker_module, "_stardist_model_name", None)
 
     result = segment_stardist(
         np.ones((3, 3, 3), dtype=np.float32),
@@ -158,10 +157,10 @@ def test_sam_worker_returns_labels(monkeypatch, image, expected_image):
         automatic_mask_generator,
     )
     monkeypatch.setitem(sys.modules, "sam2.build_sam", build_sam)
-    monkeypatch.setattr(_segmenters, "_sam_predictor", None)
-    monkeypatch.setattr(_segmenters, "_sam_predictor_device", None)
-    monkeypatch.setattr(_segmenters, "_sam_mask_generator", None)
-    monkeypatch.setattr(_segmenters, "_sam_generator_key", None)
+    monkeypatch.setattr(worker_module, "_sam_predictor", None)
+    monkeypatch.setattr(worker_module, "_sam_predictor_device", None)
+    monkeypatch.setattr(worker_module, "_sam_mask_generator", None)
+    monkeypatch.setattr(worker_module, "_sam_generator_key", None)
 
     result = segment_sam(
         image,

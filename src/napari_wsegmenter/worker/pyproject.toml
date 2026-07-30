@@ -5,9 +5,8 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "napari-wsegmenter-worker"
 version = "0.1.1"
-description = "Isolated segmentation workers for napari-wsegmenter"
 requires-python = ">=3.10"
-dependencies = ["numpy"]
+dependencies = []
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools]
+py-modules = ["napari_wsegmenter_worker"]

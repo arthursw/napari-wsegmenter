@@ -61,9 +61,8 @@ where = ["src"]
 [tool.setuptools.package-data]
 napari_wsegmenter = [
     "*.yaml",
-    "worker-package/README.md",
-    "worker-package/pyproject.toml",
-    "worker-package/src/napari_wsegmenter_worker/*.py",
+    "worker/pyproject.toml",
+    "worker/*.py",
 ]
 
 
