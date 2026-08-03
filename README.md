@@ -29,8 +29,8 @@ Worker entry points are qualified Python targets.
 They accept a NumPy image and a plain parameter dictionary, then return a NumPy labels array.
 They do not import napari GUI APIs.
 
-The widget calls `napari.plugins.execute_worker_command`, reports preparation and execution updates, exposes cancellation, presents failures through napari notifications, and adds returned labels in the main napari process.
-Napari owns provisioning, worker reuse, transport, and shutdown.
+The widget calls `napari.plugins.execute_worker_command`, shows compact status and progress for the active request, exposes cancellation, presents failures through napari notifications, and adds returned labels in the main napari process.
+Napari owns provisioning, lifecycle progress, environment logs, worker reuse, transport, and shutdown.
 
 ## Installation and first run
 
@@ -46,7 +46,8 @@ pip install -e .
 
 Each environment has the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
 The first Run provisions that segmenter's environment and may take several minutes while packages and model assets are downloaded.
-The widget displays provisioning and execution progress and can request cancellation.
+The widget displays compact lifecycle status followed by segmentation progress and can request cancellation.
+Napari's Activity surface displays environment lifecycle progress, while the Plugin Manager's Managed Environments window provides the shared detailed operation history and installation controls for every plugin environment.
 Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
 Changing the recipe causes napari to build a new environment generation.
 
@@ -84,7 +85,8 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 
 Select an image layer, open one of the Cellpose, StarDist, or SAM dock widgets, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
-Each widget keeps a scrollable task history with timestamps, lifecycle phases, progress, and failures that can be copied or cleared.
+Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
+Environment logs are centralized by napari instead of being duplicated in each plugin widget.
 
 For local development, launch napari with:
 

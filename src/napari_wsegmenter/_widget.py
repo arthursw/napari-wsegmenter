@@ -1,18 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from qtpy.QtWidgets import (
-    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
     QHBoxLayout,
     QLabel,
-    QPlainTextEdit,
     QProgressBar,
     QPushButton,
     QSpinBox,
@@ -62,76 +59,28 @@ class BaseSegmenterWidget(QWidget):
         self.progress_bar.setTextVisible(False)
         self.progress_bar.hide()
 
-        self.history = QPlainTextEdit()
-        self.history.setReadOnly(True)
-        self.history.setPlaceholderText("Task history will appear here.")
-        self.history.setAccessibleName("Segmenter task history")
-        self.history.document().setMaximumBlockCount(500)
-
-        self.copy_history_button = QPushButton("Copy")
-        self.copy_history_button.clicked.connect(self._copy_history)
-        self.clear_history_button = QPushButton("Clear")
-        self.clear_history_button.clicked.connect(self.history.clear)
-
         buttons = QHBoxLayout()
         buttons.addWidget(self.run_button)
         buttons.addWidget(self.cancel_button)
-
-        history_buttons = QHBoxLayout()
-        history_buttons.addStretch()
-        history_buttons.addWidget(self.copy_history_button)
-        history_buttons.addWidget(self.clear_history_button)
 
         layout = QVBoxLayout()
         layout.addLayout(form)
         layout.addLayout(buttons)
         layout.addWidget(self.progress_bar)
         layout.addWidget(self.status_label)
-        layout.addWidget(QLabel("Task history"))
-        layout.addWidget(self.history)
-        layout.addLayout(history_buttons)
         self.setLayout(layout)
 
     def run(self) -> None:
         raise NotImplementedError
 
-    def _append_history(
-        self,
-        message: str,
-        *,
-        phase: str,
-        current: Any = None,
-        total: Any = None,
-    ) -> None:
-        progress = (
-            f" ({current}/{total})"
-            if current is not None and total is not None
-            else ""
-        )
-        timestamp = datetime.now().astimezone().strftime("%H:%M:%S")
-        self.history.appendPlainText(
-            f"{timestamp} [{phase}] {message}{progress}"
-        )
-
-    def _copy_history(self) -> None:
-        QApplication.clipboard().setText(self.history.toPlainText())
-
     def _run_worker(self, parameters: dict[str, Any]) -> None:
         active_layer = self.viewer.layers.selection.active
         if active_layer is None:
             self.status_label.setText("Select an image layer first.")
-            self._append_history(
-                "No image layer selected.",
-                phase="input",
-            )
             return
 
         self._set_busy(True)
         self.status_label.setText("Preparing plugin environment…")
-        self._append_history(
-            "Preparing plugin environment.",
-            phase="preparing",
-        )
         try:
             task = _execute_worker_command(
                 self.COMMAND_ID,
@@ -151,7 +100,6 @@ class BaseSegmenterWidget(QWidget):
         if self._task is None:
             return
         self.status_label.setText("Canceling…")
-        self._append_history("Cancellation requested.", phase="cancel")
         self.cancel_button.setEnabled(False)
         self._task.cancel()
 
@@ -168,14 +116,6 @@ class BaseSegmenterWidget(QWidget):
         message = getattr(progress, "message", None)
         if message:
             self.status_label.setText(str(message))
-            phase = getattr(progress, "phase", "progress")
-            phase = getattr(phase, "value", phase)
-            self._append_history(
-                str(message),
-                phase=str(phase),
-                current=getattr(progress, "current", None),
-                total=getattr(progress, "total", None),
-            )
         current = getattr(progress, "current", None)
         total = getattr(progress, "total", None)
         if total is None:
@@ -191,12 +131,10 @@ class BaseSegmenterWidget(QWidget):
             return
         self.viewer.add_labels(np.asarray(labels), name=self.RESULT_NAME)
         self.status_label.setText("Segmentation complete.")
-        self._append_history("Segmentation complete.", phase="completed")
 
     def _on_error(self, error: Any, *, notify: bool = False) -> None:
         message = f"{self.RESULT_NAME} failed: {error}"
         self.status_label.setText(message)
-        self._append_history(message, phase="failed")
         if notify:
             _show_error(message)
 
@@ -207,10 +145,6 @@ class BaseSegmenterWidget(QWidget):
                 self._on_returned(task.result())
             elif state == "canceled":
                 self.status_label.setText("Segmentation canceled.")
-                self._append_history(
-                    "Segmentation canceled.",
-                    phase="canceled",
-                )
             else:
                 self._on_error(task.error or "Unknown worker failure")
         finally:
