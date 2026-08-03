@@ -1,11 +1,19 @@
-from pathlib import Path
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
+from datetime import datetime
+from typing import TYPE_CHECKING, Any
+
+import numpy as np
 from qtpy.QtWidgets import (
+    QApplication,
     QCheckBox,
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
+    QHBoxLayout,
+    QLabel,
+    QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QSpinBox,
     QVBoxLayout,
@@ -14,117 +22,210 @@ from qtpy.QtWidgets import (
 
 if TYPE_CHECKING:
     import napari
-    import napari.viewer
-
-from wetlands.environment_manager import EnvironmentManager
-from wetlands.ndarray import update_ndarray
-
-SEGMENTERS_PATH = Path(__file__).resolve().parent
 
 
-# ===============================================================
-#                    BASE SEGMENTER WIDGET
-# ===============================================================
+def _execute_worker_command(command_id: str, *args: Any, **kwargs: Any) -> Any:
+    from napari.plugins import execute_worker_command
+
+    return execute_worker_command(command_id, *args, **kwargs)
+
+
+def _show_error(message: str) -> None:
+    from napari.utils.notifications import show_error
+
+    show_error(message)
 
 
 class BaseSegmenterWidget(QWidget):
-    """
-    A base widget that handles:
-    - creating an EnvironmentManager and one environment
-    - allocating and updating shared memory
-    - running a segmentation script
-    """
+    """Common host-side UI for an isolated segmentation worker."""
 
-    ENV_NAME = ""  # overridden in subclass
-    ENV_SPEC = None  # overridden in subclass
-    SCRIPT_NAME = ""  # overridden in subclass
+    COMMAND_ID = ""
+    RESULT_NAME = "Segmentation"
 
-    def __init__(self, viewer: "napari.viewer.Viewer"):
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
         super().__init__()
-        self.viewer = viewer
+        self.viewer = napari_viewer
+        self._task: Any = None
 
-        # --- Environment creation ---
-        self.environment_manager = EnvironmentManager(debug=True)
-        self.env = self.environment_manager.create(
-            self.ENV_NAME, self.ENV_SPEC
+    def _set_content(self, form: QFormLayout, run_label: str) -> None:
+        self.run_button = QPushButton(run_label)
+        self.run_button.clicked.connect(self.run)
+
+        self.cancel_button = QPushButton("Cancel")
+        self.cancel_button.setEnabled(False)
+        self.cancel_button.clicked.connect(self.cancel)
+
+        self.status_label = QLabel("Ready")
+        self.status_label.setWordWrap(True)
+
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setTextVisible(False)
+        self.progress_bar.hide()
+
+        self.history = QPlainTextEdit()
+        self.history.setReadOnly(True)
+        self.history.setPlaceholderText("Task history will appear here.")
+        self.history.setAccessibleName("Segmenter task history")
+        self.history.document().setMaximumBlockCount(500)
+
+        self.copy_history_button = QPushButton("Copy")
+        self.copy_history_button.clicked.connect(self._copy_history)
+        self.clear_history_button = QPushButton("Clear")
+        self.clear_history_button.clicked.connect(self.history.clear)
+
+        buttons = QHBoxLayout()
+        buttons.addWidget(self.run_button)
+        buttons.addWidget(self.cancel_button)
+
+        history_buttons = QHBoxLayout()
+        history_buttons.addStretch()
+        history_buttons.addWidget(self.copy_history_button)
+        history_buttons.addWidget(self.clear_history_button)
+
+        layout = QVBoxLayout()
+        layout.addLayout(form)
+        layout.addLayout(buttons)
+        layout.addWidget(self.progress_bar)
+        layout.addWidget(self.status_label)
+        layout.addWidget(QLabel("Task history"))
+        layout.addWidget(self.history)
+        layout.addLayout(history_buttons)
+        self.setLayout(layout)
+
+    def run(self) -> None:
+        raise NotImplementedError
+
+    def _append_history(
+        self,
+        message: str,
+        *,
+        phase: str,
+        current: Any = None,
+        total: Any = None,
+    ) -> None:
+        progress = (
+            f" ({current}/{total})"
+            if current is not None and total is not None
+            else ""
         )
-        self.env.launch()
-
-        # --- Shared memory ---
-        self.shared_image = None
-        self.shared_segmentation = None
-
-    # -------------------------------
-    # Shared memory allocation/update
-    # -------------------------------
-    def update_shared_memory(self, image):
-        if image is None:
-            return
-        self.shared_image = update_ndarray(image, self.shared_image)
-        self.shared_segmentation = update_ndarray(
-            shape=image.shape[:2],
-            dtype="uint8",
-            ndarray=self.shared_segmentation,
+        timestamp = datetime.now().astimezone().strftime("%H:%M:%S")
+        self.history.appendPlainText(
+            f"{timestamp} [{phase}] {message}{progress}"
         )
 
-    # -------------------------------
-    # Running inside environment
-    # -------------------------------
-    def run_environment(self, args_dict):
-        layer0 = self.viewer.layers.selection.active
-        if layer0 is None:
-            print("No active layer selected.")
-            return
+    def _copy_history(self) -> None:
+        QApplication.clipboard().setText(self.history.toPlainText())
 
-        self.update_shared_memory(layer0.data)
-
-        self.env.execute(
-            SEGMENTERS_PATH / self.SCRIPT_NAME,
-            "segment",
-            (
-                self.shared_image,
-                self.shared_segmentation,
-                args_dict,
-            ),
-        )
-
-        if self.shared_segmentation:
-            self.viewer.add_labels(
-                self.shared_segmentation.array.copy(),
-                name=f"{self.ENV_NAME} segmentation",
+    def _run_worker(self, parameters: dict[str, Any]) -> None:
+        active_layer = self.viewer.layers.selection.active
+        if active_layer is None:
+            self.status_label.setText("Select an image layer first.")
+            self._append_history(
+                "No image layer selected.",
+                phase="input",
             )
+            return
 
-    # -------------------------------
-    # Cleanup on widget close
-    # -------------------------------
-    def closeEvent(self, a0):
-        if self.shared_image is not None:
-            self.shared_image.dispose()
-        if self.shared_segmentation is not None:
-            self.shared_segmentation.dispose()
-        self.environment_manager.exit()
-        if a0:
-            a0.accept()
+        self._set_busy(True)
+        self.status_label.setText("Preparing plugin environment…")
+        self._append_history(
+            "Preparing plugin environment.",
+            phase="preparing",
+        )
+        try:
+            task = _execute_worker_command(
+                self.COMMAND_ID,
+                np.asarray(active_layer.data),
+                parameters,
+            )
+        except (ImportError, KeyError, RuntimeError, ValueError) as error:
+            self._on_error(error, notify=True)
+            self._set_busy(False)
+            return
 
+        self._task = task
+        task.add_progress_callback(self._on_progress)
+        task.add_done_callback(self._on_done)
 
-# ===============================================================
-#                        CELLPOSE WIDGET
-# ===============================================================
+    def cancel(self) -> None:
+        if self._task is None:
+            return
+        self.status_label.setText("Canceling…")
+        self._append_history("Cancellation requested.", phase="cancel")
+        self.cancel_button.setEnabled(False)
+        self._task.cancel()
+
+    def _set_busy(self, busy: bool) -> None:
+        self.run_button.setEnabled(not busy)
+        self.cancel_button.setEnabled(busy)
+        self.progress_bar.setVisible(busy)
+        if busy:
+            self.progress_bar.setRange(0, 0)
+        else:
+            self.progress_bar.reset()
+
+    def _on_progress(self, progress: Any) -> None:
+        message = getattr(progress, "message", None)
+        if message:
+            self.status_label.setText(str(message))
+            phase = getattr(progress, "phase", "progress")
+            phase = getattr(phase, "value", phase)
+            self._append_history(
+                str(message),
+                phase=str(phase),
+                current=getattr(progress, "current", None),
+                total=getattr(progress, "total", None),
+            )
+        current = getattr(progress, "current", None)
+        total = getattr(progress, "total", None)
+        if total is None:
+            total = getattr(progress, "maximum", None)
+        if current is None or total is None:
+            self.progress_bar.setRange(0, 0)
+            return
+        self.progress_bar.setRange(0, max(0, int(total)))
+        self.progress_bar.setValue(max(0, int(current)))
+
+    def _on_returned(self, labels: Any) -> None:
+        if labels is None:
+            return
+        self.viewer.add_labels(np.asarray(labels), name=self.RESULT_NAME)
+        self.status_label.setText("Segmentation complete.")
+        self._append_history("Segmentation complete.", phase="completed")
+
+    def _on_error(self, error: Any, *, notify: bool = False) -> None:
+        message = f"{self.RESULT_NAME} failed: {error}"
+        self.status_label.setText(message)
+        self._append_history(message, phase="failed")
+        if notify:
+            _show_error(message)
+
+    def _on_done(self, task: Any) -> None:
+        try:
+            state = task.state.value
+            if state == "completed":
+                self._on_returned(task.result())
+            elif state == "canceled":
+                self.status_label.setText("Segmentation canceled.")
+                self._append_history(
+                    "Segmentation canceled.",
+                    phase="canceled",
+                )
+            else:
+                self._on_error(task.error or "Unknown worker failure")
+        finally:
+            if self._task is task:
+                self._task = None
+                self._set_busy(False)
 
 
 class CellposeWidget(BaseSegmenterWidget):
-    ENV_NAME = "Cellpose"
-    ENV_SPEC = {
-        "python": "3.10",
-        "pip": ["wetlands==0.4.4"],
-        "conda": ["cellpose==3.1.0"],
-    }
-    SCRIPT_NAME = "_cellpose.py"
+    COMMAND_ID = "napari-wsegmenter.cellpose_worker"
+    RESULT_NAME = "Cellpose segmentation"
 
-    def __init__(self, viewer: "napari.viewer.Viewer"):
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
-        # UI
         self.model_type = QComboBox()
         self.model_type.addItems(["cyto3", "cyto2", "nuclei"])
 
@@ -134,22 +235,14 @@ class CellposeWidget(BaseSegmenterWidget):
         self.diameter.setRange(0, 1000)
         self.diameter.setValue(30.0)
 
-        self.run_button = QPushButton("Run Cellpose")
-        self.run_button.clicked.connect(self.run)
-
-        # Layout
         form = QFormLayout()
         form.addRow("Model type:", self.model_type)
         form.addRow("Use GPU:", self.use_gpu)
         form.addRow("Diameter:", self.diameter)
+        self._set_content(form, "Run Cellpose")
 
-        layout = QVBoxLayout()
-        layout.addLayout(form)
-        layout.addWidget(self.run_button)
-        self.setLayout(layout)
-
-    def run(self):
-        self.run_environment(
+    def run(self) -> None:
+        self._run_worker(
             {
                 "model_type": self.model_type.currentText(),
                 "use_gpu": self.use_gpu.isChecked(),
@@ -159,60 +252,30 @@ class CellposeWidget(BaseSegmenterWidget):
         )
 
 
-# ===============================================================
-#                        STARDIST WIDGET
-# ===============================================================
-
-
 class StardistWidget(BaseSegmenterWidget):
-    ENV_NAME = "StarDist"
-    ENV_SPEC = {
-        "python": "3.10",
-        "pip": [
-            "wetlands==0.4.4",
-            "tensorflow==2.16.1",
-            "csbdeep==0.8.1",
-            "stardist==0.9.1",
-        ],
-    }
-    SCRIPT_NAME = "_stardist.py"
+    COMMAND_ID = "napari-wsegmenter.stardist_worker"
+    RESULT_NAME = "StarDist segmentation"
 
-    def __init__(self, viewer: "napari.viewer.Viewer"):
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
         self.model_name = QComboBox()
         self.model_name.addItems(["2D_versatile_fluo", "2D_paper_dsb2018"])
 
-        self.run_button = QPushButton("Run Stardist")
-        self.run_button.clicked.connect(self.run)
-
         form = QFormLayout()
         form.addRow("Model:", self.model_name)
+        self._set_content(form, "Run StarDist")
 
-        layout = QVBoxLayout()
-        layout.addLayout(form)
-        layout.addWidget(self.run_button)
-        self.setLayout(layout)
-
-    def run(self):
-        self.run_environment({"model_name": self.model_name.currentText()})
-
-
-# ===============================================================
-#                           SAM WIDGET
-# ===============================================================
+    def run(self) -> None:
+        self._run_worker({"model_name": self.model_name.currentText()})
 
 
 class SamWidget(BaseSegmenterWidget):
-    ENV_NAME = "SAM"
-    ENV_SPEC = {
-        "python": "3.10",
-        "pip": ["wetlands==0.4.4", "sam2==1.1.0", "huggingface_hub==0.29.2"],
-    }
-    SCRIPT_NAME = "_sam.py"
+    COMMAND_ID = "napari-wsegmenter.sam_worker"
+    RESULT_NAME = "SAM segmentation"
 
-    def __init__(self, viewer: "napari.viewer.Viewer"):
-        super().__init__(viewer)
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
 
         self.use_gpu = QCheckBox()
 
@@ -228,22 +291,15 @@ class SamWidget(BaseSegmenterWidget):
         self.stability_thresh.setRange(0, 1)
         self.stability_thresh.setValue(0.95)
 
-        self.run_button = QPushButton("Run SAM")
-        self.run_button.clicked.connect(self.run)
-
         form = QFormLayout()
         form.addRow("Use GPU:", self.use_gpu)
         form.addRow("Points per side:", self.points_per_side)
         form.addRow("Pred IOU thresh:", self.pred_iou_thresh)
         form.addRow("Stability thresh:", self.stability_thresh)
+        self._set_content(form, "Run SAM")
 
-        layout = QVBoxLayout()
-        layout.addLayout(form)
-        layout.addWidget(self.run_button)
-        self.setLayout(layout)
-
-    def run(self):
-        self.run_environment(
+    def run(self) -> None:
+        self._run_worker(
             {
                 "use_gpu": self.use_gpu.isChecked(),
                 "points_per_side": int(self.points_per_side.value()),

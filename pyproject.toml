@@ -13,32 +13,32 @@ classifiers = [
     "Framework :: napari",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Scientific/Engineering :: Image Processing",
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dependencies = [
+    "napari",
     "numpy",
-    "magicgui",
     "qtpy",
-    "wetlands>=0.4.8,<0.5",
 ]
 
 [project.optional-dependencies]
 testing = [
+    "build",
     "tox",
     "pytest",  # https://docs.pytest.org/en/latest/contents.html
     "pytest-cov",  # https://pytest-cov.readthedocs.io/en/latest/
     "pytest-qt",  # https://pytest-qt.readthedocs.io/en/latest/
-    "napari",
     "pyqt5",
+    "setuptools>=42",
+    "setuptools-scm",
+    "wheel",
 ]
 
 [project.entry-points."napari.manifest"]
@@ -61,7 +61,11 @@ include-package-data = true
 where = ["src"]
 
 [tool.setuptools.package-data]
-"*" = ["*.yaml"]
+napari_wsegmenter = [
+    "*.yaml",
+    "worker/pyproject.toml",
+    "worker/*.py",
+]
 
 
 [tool.setuptools_scm]
@@ -71,7 +75,7 @@ fallback_version = "0.0.1+nogit"
 
 [tool.black]
 line-length = 79
-target-version = ['py310', 'py311', 'py312', 'py313']
+target-version = ['py311', 'py312', 'py313']
 
 [tool.ruff]
 line-length = 79
@@ -90,7 +94,6 @@ lint.select = [
 ]
 lint.ignore = [
     "E501", # line too long. let black handle this
-    "UP006", "UP007", # type annotation. As using magicgui require runtime type annotation then we disable this.
     "SIM117", # flake8-simplify - some of merged with statements are not looking great with black, reanble after drop python 3.9
 ]
 
@@ -116,7 +119,7 @@ exclude = [
     "*_vendor*",
 ]
 
-target-version = "py310"
+target-version = "py311"
 fix = true
 
 [tool.pytest.ini_options]
