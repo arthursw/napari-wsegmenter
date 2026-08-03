@@ -6,14 +6,15 @@
 Segment images with Cellpose, StarDist, or SAM 2 while keeping their dependencies out of the environment that runs napari.
 
 This branch is the integration example for napari-managed plugin environments.
-It requires the corresponding napari and npe2 feature branches and, until Wetlands 2 is published, a local editable installation of Wetlands 2 in the napari development environment.
+It requires the corresponding napari and npe2 feature branches and Wetlands 2.2 or later.
 The plugin itself does not import or depend on Wetlands.
 Wetlands is a private execution backend behind napari-owned task, progress, failure, and lifecycle APIs.
 
 ## How dependency isolation works
 
 The installed `napari-wsegmenter` host package contains only the Qt widgets and napari integration.
-It depends on NumPy and QtPy, and importing it does not import Cellpose, TensorFlow, StarDist, SAM, PyTorch, or Wetlands.
+Its runtime requirements are exactly napari, NumPy, and QtPy, which are the host packages it imports and which the running napari installation already supplies.
+Importing the plugin does not import Cellpose, TensorFlow, StarDist, SAM, PyTorch, or Wetlands.
 
 The plugin manifest declares a separate managed environment for each segmenter.
 It also associates each worker command with its environment:
@@ -33,7 +34,11 @@ Napari owns provisioning, worker reuse, transport, and shutdown.
 
 ## Installation and first run
 
-Install this plugin into a napari environment that contains the managed-environment feature:
+This is a coordinated pre-release integration branch.
+Install the published `wetlands>=2.2`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
+Before publishing WSegmenter, replace that requirement with a lower bound on the first released napari version that provides managed plugin environments.
+
+Then install this plugin into that environment:
 
 ```sh
 pip install -e .
@@ -51,12 +56,16 @@ Their framework versions do not alter napari's packages or constrain the depende
 The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
 Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.
 The worker converts 2D grayscale images to RGB before calling SAM 2.
-Meta documents Linux as its supported platform; macOS arm64 CPU execution is validated here as an integration example but remains outside Meta's upstream support statement.
+Meta documents Linux as its supported platform.
+macOS arm64 CPU execution was manually exercised during development, but it is not covered by this repository's automated test matrix and remains outside Meta's upstream support statement.
 
 ## Packaging contract
 
-Plugin GUI and napari integration code must remain lightweight enough to install in the napari environment.
-Dependencies needed only by worker functionality belong in `contributions.environments`, not in the host package dependencies.
+Plugin GUI and napari integration code runs in the napari process.
+The main plugin distribution may require only napari and packages in napari's direct base requirements for the current platform, and every version constraint must accept the version already installed with napari.
+Every other runtime dependency, and the code that imports it, belongs in `contributions.environments` and worker code rather than the main distribution.
+Napari-managed installation validates the exact plugin wheel against this rule and rejects a nonconforming wheel before installing it without dependency resolution.
+The host plugin requires Python 3.11 or later; its managed worker environments select Python 3.10 independently to match their scientific frameworks.
 The manifest is authoritative for worker runtime dependencies, including NumPy.
 The embedded worker project's dependency list is deliberately empty; its `pyproject.toml` exists only to make the adjacent `napari_wsegmenter_worker.py` module an installable qualified target.
 
@@ -65,8 +74,8 @@ Its internal distribution version must remain synchronized with plugin releases 
 Plugin authors expose installed `module:callable` targets.
 Filesystem path execution and backend transport are not part of the napari plugin API.
 
-Existing napari plugins continue to run in the host process unless they opt into managed worker commands.
-Isolation can only be guaranteed for dependencies installed through napari-managed environments; users can still manually install conflicting packages into the napari environment.
+Existing plugins installed with `pip`, Conda, or another external tool remain discoverable, but those installation flows use normal dependency resolution and are outside napari's isolation guarantee.
+A plugin must follow the host dependency contract before napari's managed installer can accept it.
 
 Managed environments isolate Python dependencies, but they are not security sandboxes.
 Worker code is trusted plugin code and retains the user's filesystem, network, process, GPU, and credential access.
@@ -95,8 +104,15 @@ uv sync --extra testing
 uv run tox run
 ```
 
+Build and validate the release artifact against the running napari environment:
+
+```sh
+uv run python -m build
+uv run npe2 validate --host-dependencies dist/napari_wsegmenter-*.whl
+```
+
 The unit tests replace heavy frameworks and the napari runtime task with fakes.
-They verify lazy imports, ordinary NumPy inputs and outputs, progress, cancellation, failures, and result-layer creation without provisioning multi-gigabyte environments.
+They verify lazy imports, ordinary NumPy inputs and outputs, progress, cancellation, failures, result-layer creation, npe2 manifest parsing, authoritative wheel metadata, and embedded worker contents without provisioning multi-gigabyte environments.
 A real end-to-end smoke test should be run from the matching napari and npe2 feature branches before release.
 
 ## License

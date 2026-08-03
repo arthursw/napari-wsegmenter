@@ -1,8 +1,25 @@
+import shutil
+import subprocess
+import sys
+import tomllib
 from pathlib import Path
+from zipfile import ZipFile
 
+import pytest
 import yaml
+from npe2 import (
+    HostDependencyPolicy,
+    PackageMetadata,
+    PluginManifest,
+    get_manifest_from_wheel,
+    validate_host_dependencies,
+)
+from packaging.markers import default_environment
+from packaging.requirements import Requirement
+from packaging.utils import canonicalize_name
 
 PACKAGE_ROOT = Path(__file__).parents[1]
+PROJECT_ROOT = PACKAGE_ROOT.parents[1]
 MANIFEST_PATH = PACKAGE_ROOT / "napari.yaml"
 WORKER_ROOT = PACKAGE_ROOT / "worker"
 
@@ -19,6 +36,109 @@ def _environment(environment_id):
         for environment in environments
         if environment["id"] == environment_id
     )
+
+
+@pytest.fixture(scope="module")
+def built_wheel(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    temporary_root = tmp_path_factory.mktemp("wheel-build")
+    source_root = temporary_root / "source"
+    output_root = temporary_root / "dist"
+    shutil.copytree(
+        PROJECT_ROOT,
+        source_root,
+        ignore=shutil.ignore_patterns(
+            ".git",
+            ".tox",
+            ".venv",
+            "__pycache__",
+            "*.egg-info",
+            "build",
+            "dist",
+        ),
+    )
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "build",
+            "--wheel",
+            "--no-isolation",
+            "--outdir",
+            str(output_root),
+            str(source_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    wheels = list(output_root.glob("*.whl"))
+    assert len(wheels) == 1
+    return wheels[0]
+
+
+def _active_base_requirements(metadata: PackageMetadata) -> set[str]:
+    environment = {**default_environment(), "extra": ""}
+    requirements = (
+        Requirement(value) for value in metadata.requires_dist or ()
+    )
+    return {
+        canonicalize_name(requirement.name)
+        for requirement in requirements
+        if requirement.marker is None
+        or requirement.marker.evaluate(environment=environment)
+    }
+
+
+def test_manifest_validates_with_npe2():
+    manifest = PluginManifest.from_file(MANIFEST_PATH)
+
+    assert manifest.name == "napari-wsegmenter"
+
+
+def test_built_wheel_has_valid_host_dependencies(built_wheel: Path):
+    manifest = get_manifest_from_wheel(str(built_wheel))
+    assert manifest.package_metadata is not None
+
+    validate_host_dependencies(
+        manifest.package_metadata,
+        HostDependencyPolicy.from_environment(),
+    )
+    assert _active_base_requirements(manifest.package_metadata) == {
+        "napari",
+        "numpy",
+        "qtpy",
+    }
+
+    completed = subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "npe2",
+            "validate",
+            "--host-dependencies",
+            str(built_wheel),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert completed.returncode == 0, completed.stdout + completed.stderr
+    assert "Host dependencies" in completed.stdout
+
+
+def test_built_wheel_contains_minimal_worker_project(built_wheel: Path):
+    with ZipFile(built_wheel) as wheel:
+        names = set(wheel.namelist())
+        worker_project = tomllib.loads(
+            wheel.read("napari_wsegmenter/worker/pyproject.toml").decode()
+        )
+
+    assert "napari_wsegmenter/worker/napari_wsegmenter_worker.py" in names
+    assert worker_project["project"]["dependencies"] == []
+    assert worker_project["tool"]["setuptools"]["py-modules"] == [
+        "napari_wsegmenter_worker"
+    ]
 
 
 def test_environments_use_flat_embedded_worker_project():
