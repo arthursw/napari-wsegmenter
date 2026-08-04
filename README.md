@@ -25,6 +25,7 @@ It also associates each worker command with its environment:
 - `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
 - `napari-wsegmenter.threshold_numpy1_worker` runs with NumPy 1.26;
 - `napari-wsegmenter.threshold_numpy2_worker` runs the same worker code with the incompatible NumPy 2.2 release.
+- `napari-wsegmenter.threshold_on_install_worker` runs the same worker with NumPy 2.0 in a lightweight environment declared for installation-time preparation.
 
 The worker code is a single module in the two-file embedded project at `src/napari_wsegmenter/worker`.
 The outer `napari-wsegmenter` wheel ships that project as package data, and napari installs it into each managed environment without publishing a second package.
@@ -47,8 +48,11 @@ Then install this plugin into that environment:
 pip install -e .
 ```
 
-Each environment has the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
-The first Run provisions that segmenter's environment and may take several minutes while packages and model assets are downloaded.
+The three segmentation environments and two incompatible NumPy test environments use the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
+The additional NumPy 2.0 test environment uses `on_install`, so a managed Plugin Manager installation prepares it immediately after installing or updating the host plugin package.
+Installing the host package directly with `pip` does not invoke the Plugin Manager lifecycle and does not prepare this environment when napari next launches.
+It remains available through Managed Environments and is prepared automatically if its threshold worker is invoked while it is missing.
+The first Run of any other environment provisions that environment and may take several minutes while packages and model assets are downloaded.
 The widget uses one compact display for environment lifecycle and segmentation progress and can request cancellation throughout the operation.
 The Plugin Manager's Managed Environments window provides shared detailed operation history and installation controls for every plugin environment.
 Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
@@ -56,7 +60,7 @@ Changing the recipe causes napari to build a new environment generation.
 
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
-The two threshold environments make this property cheap to inspect: they install incompatible NumPy versions, call the same qualified threshold target, and return a nested value containing a labels array and the worker's NumPy version.
+The three threshold environments make lifecycle and isolation behavior cheap to inspect: they install different NumPy versions, call the same qualified threshold target, and return a nested value containing a labels array and the worker's NumPy version.
 
 The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
 Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.

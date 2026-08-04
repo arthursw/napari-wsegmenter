@@ -62,6 +62,16 @@ contributions:
         - conda-forge
       local_packages:
         - path: worker
+    - id: napari-wsegmenter.threshold_on_install
+      display_name: Threshold on install, NumPy 2.0
+      provision: on_install
+      python: "3.10.*"
+      conda:
+        - numpy==2.0.2
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker
   commands:
     - id: napari-wsegmenter.cellpose_worker
       python_name: napari_wsegmenter_worker:segment_cellpose
@@ -87,6 +97,11 @@ contributions:
       python_name: napari_wsegmenter_worker:segment_threshold
       title: Threshold with NumPy 2.2
       environment: napari-wsegmenter.threshold_numpy2
+      accepts_worker_context: true
+    - id: napari-wsegmenter.threshold_on_install_worker
+      python_name: napari_wsegmenter_worker:segment_threshold
+      title: Threshold with install-time NumPy 2.0
+      environment: napari-wsegmenter.threshold_on_install
       accepts_worker_context: true
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget

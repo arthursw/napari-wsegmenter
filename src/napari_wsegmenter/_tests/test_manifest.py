@@ -150,10 +150,21 @@ def test_environments_use_flat_embedded_worker_project():
         "StarDist",
         "Threshold NumPy 1.26",
         "Threshold NumPy 2.2",
+        "Threshold on install, NumPy 2.0",
     }
     for environment in environments:
-        assert environment["provision"] == "on_demand"
         assert environment["local_packages"] == [{"path": "worker"}]
+    assert {
+        environment["id"]: environment["provision"]
+        for environment in environments
+    } == {
+        "napari-wsegmenter.cellpose": "on_demand",
+        "napari-wsegmenter.sam": "on_demand",
+        "napari-wsegmenter.stardist": "on_demand",
+        "napari-wsegmenter.threshold_numpy1": "on_demand",
+        "napari-wsegmenter.threshold_numpy2": "on_demand",
+        "napari-wsegmenter.threshold_on_install": "on_install",
+    }
 
 
 def test_environment_manifest_owns_worker_dependencies():
@@ -162,12 +173,14 @@ def test_environment_manifest_owns_worker_dependencies():
     sam = _environment("napari-wsegmenter.sam")
     numpy1 = _environment("napari-wsegmenter.threshold_numpy1")
     numpy2 = _environment("napari-wsegmenter.threshold_numpy2")
+    install_time = _environment("napari-wsegmenter.threshold_on_install")
 
     assert "numpy" in cellpose["conda"]
     assert "numpy>=1.23.5,<2" in stardist["pypi"]
     assert "numpy>=1.24.4" in sam["pypi"]
     assert numpy1["conda"] == ["numpy==1.26.4"]
     assert numpy2["conda"] == ["numpy==2.2.6"]
+    assert install_time["conda"] == ["numpy==2.0.2"]
 
     worker_project = (WORKER_ROOT / "pyproject.toml").read_text()
     assert "dependencies = []" in worker_project

@@ -207,6 +207,28 @@ def test_threshold_widget_selects_environment_and_handles_nested_result(
     assert widget.status_label.text() == "Threshold complete in NumPy 2.2.6."
 
 
+def test_threshold_widget_exposes_on_install_environment(
+    make_napari_viewer, monkeypatch
+):
+    viewer = make_napari_viewer()
+    viewer.add_image(np.zeros((2, 2), dtype=np.float32))
+    task = FakeTask()
+    calls = []
+    monkeypatch.setattr(
+        _widget,
+        "_execute_worker_command",
+        lambda command_id, *args, **kwargs: (
+            calls.append((command_id, args, kwargs)) or task
+        ),
+    )
+    widget = ThresholdWidget(viewer)
+    widget.environment.setCurrentIndex(2)
+
+    widget.run()
+
+    assert calls[0][0] == "napari-wsegmenter.threshold_on_install_worker"
+
+
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
     viewer = make_napari_viewer()
     viewer.add_image(np.zeros((4, 4)))
