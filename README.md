@@ -49,8 +49,8 @@ pip install -e .
 
 Each environment has the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
 The first Run provisions that segmenter's environment and may take several minutes while packages and model assets are downloaded.
-The widget displays compact lifecycle status followed by segmentation progress and can request cancellation.
-Napari's Activity surface displays environment lifecycle progress, while the Plugin Manager's Managed Environments window provides the shared detailed operation history and installation controls for every plugin environment.
+The widget uses one compact display for environment lifecycle and segmentation progress and can request cancellation throughout the operation.
+The Plugin Manager's Managed Environments window provides shared detailed operation history and installation controls for every plugin environment.
 Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
 Changing the recipe causes napari to build a new environment generation.
 
