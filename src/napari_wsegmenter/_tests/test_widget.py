@@ -143,6 +143,33 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     assert widget.run_button.isEnabled()
 
 
+def test_widget_explains_environment_lifecycle_cancellation(
+    make_napari_viewer, monkeypatch
+):
+    viewer = make_napari_viewer()
+    viewer.add_image(np.zeros((4, 4)))
+    task = FakeTask()
+    monkeypatch.setattr(
+        _widget,
+        "_execute_worker_command",
+        lambda *args, **kwargs: task,
+    )
+    widget = CellposeWidget(viewer)
+    widget.run()
+
+    task.finish(
+        "canceled",
+        error=RuntimeError(
+            "The managed environment is being stopped or removed"
+        ),
+    )
+
+    assert widget.status_label.text() == (
+        "Segmentation canceled: The managed environment is being stopped "
+        "or removed."
+    )
+
+
 def test_threshold_widget_selects_environment_and_handles_nested_result(
     make_napari_viewer, monkeypatch
 ):

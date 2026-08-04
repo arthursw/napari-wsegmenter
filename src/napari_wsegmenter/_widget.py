@@ -149,7 +149,13 @@ class BaseSegmenterWidget(QWidget):
             if state == "completed":
                 self._on_returned(task.result())
             elif state == "canceled":
-                self.status_label.setText("Segmentation canceled.")
+                reason = str(task.error or "").strip().rstrip(".")
+                if reason and reason != "Plugin task was canceled":
+                    self.status_label.setText(
+                        f"Segmentation canceled: {reason}."
+                    )
+                else:
+                    self.status_label.setText("Segmentation canceled.")
             else:
                 self._on_error(task.error or "Unknown worker failure")
         finally:
