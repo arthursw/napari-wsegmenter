@@ -4,6 +4,7 @@
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 
 Segment images with Cellpose, StarDist, or SAM 2 while keeping their dependencies out of the environment that runs napari.
+Two lightweight threshold environments provide a fast way to exercise installation, removal, execution, reuse, and dependency isolation without downloading a segmentation framework.
 
 This branch is the integration example for napari-managed plugin environments.
 It requires the corresponding napari and npe2 feature branches and Wetlands 2.2 or later.
@@ -22,6 +23,8 @@ It also associates each worker command with its environment:
 - `napari-wsegmenter.cellpose_worker` runs with Cellpose;
 - `napari-wsegmenter.stardist_worker` runs with TensorFlow and StarDist;
 - `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
+- `napari-wsegmenter.threshold_numpy1_worker` runs with NumPy 1.26;
+- `napari-wsegmenter.threshold_numpy2_worker` runs the same worker code with the incompatible NumPy 2.2 release.
 
 The worker code is a single module in the two-file embedded project at `src/napari_wsegmenter/worker`.
 The outer `napari-wsegmenter` wheel ships that project as package data, and napari installs it into each managed environment without publishing a second package.
@@ -53,6 +56,7 @@ Changing the recipe causes napari to build a new environment generation.
 
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
+The two threshold environments make this property cheap to inspect: they install incompatible NumPy versions, call the same qualified threshold target, and return a nested value containing a labels array and the worker's NumPy version.
 
 The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
 Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.
@@ -83,10 +87,14 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 
 ## Usage
 
-Select an image layer, open one of the Cellpose, StarDist, or SAM dock widgets, choose parameters, and click Run.
+Select an image layer, open one of the Cellpose, StarDist, SAM, or Threshold environment test dock widgets, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
 Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
 Environment logs are centralized by napari instead of being duplicated in each plugin widget.
+
+For a quick lifecycle test, open **Threshold environment test**, choose either NumPy environment, and click **Run threshold**.
+The first run installs that small environment and later runs reuse it.
+Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to prepare, remove, rebuild, or stop it explicitly, then switch to the other NumPy version to verify that the two recipes coexist.
 
 For local development, launch napari with:
 

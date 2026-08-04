@@ -42,6 +42,26 @@ contributions:
         - conda-forge
       local_packages:
         - path: worker
+    - id: napari-wsegmenter.threshold_numpy1
+      display_name: Threshold NumPy 1.26
+      provision: on_demand
+      python: "3.10.*"
+      conda:
+        - numpy==1.26.4
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker
+    - id: napari-wsegmenter.threshold_numpy2
+      display_name: Threshold NumPy 2.2
+      provision: on_demand
+      python: "3.10.*"
+      conda:
+        - numpy==2.2.6
+      channels:
+        - conda-forge
+      local_packages:
+        - path: worker
   commands:
     - id: napari-wsegmenter.cellpose_worker
       python_name: napari_wsegmenter_worker:segment_cellpose
@@ -58,6 +78,16 @@ contributions:
       title: Segment with SAM
       environment: napari-wsegmenter.sam
       accepts_worker_context: true
+    - id: napari-wsegmenter.threshold_numpy1_worker
+      python_name: napari_wsegmenter_worker:segment_threshold
+      title: Threshold with NumPy 1.26
+      environment: napari-wsegmenter.threshold_numpy1
+      accepts_worker_context: true
+    - id: napari-wsegmenter.threshold_numpy2_worker
+      python_name: napari_wsegmenter_worker:segment_threshold
+      title: Threshold with NumPy 2.2
+      environment: napari-wsegmenter.threshold_numpy2
+      accepts_worker_context: true
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget
       title: Make Cellpose widget
@@ -67,6 +97,9 @@ contributions:
     - id: napari-wsegmenter.make_sam_widget
       python_name: napari_wsegmenter:SamWidget
       title: Make SAM widget
+    - id: napari-wsegmenter.make_threshold_widget
+      python_name: napari_wsegmenter:ThresholdWidget
+      title: Make threshold test widget
   widgets:
     - command: napari-wsegmenter.make_cellpose_widget
       display_name: Cellpose
@@ -74,8 +107,11 @@ contributions:
       display_name: StarDist
     - command: napari-wsegmenter.make_sam_widget
       display_name: SAM
+    - command: napari-wsegmenter.make_threshold_widget
+      display_name: Threshold environment test
   menus:
     napari/layers/segment:
       - command: napari-wsegmenter.make_cellpose_widget
       - command: napari-wsegmenter.make_stardist_widget
       - command: napari-wsegmenter.make_sam_widget
+      - command: napari-wsegmenter.make_threshold_widget

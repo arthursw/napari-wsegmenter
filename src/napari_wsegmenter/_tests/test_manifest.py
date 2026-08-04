@@ -148,6 +148,8 @@ def test_environments_use_flat_embedded_worker_project():
         "Cellpose",
         "SAM 2",
         "StarDist",
+        "Threshold NumPy 1.26",
+        "Threshold NumPy 2.2",
     }
     for environment in environments:
         assert environment["provision"] == "on_demand"
@@ -158,10 +160,14 @@ def test_environment_manifest_owns_worker_dependencies():
     cellpose = _environment("napari-wsegmenter.cellpose")
     stardist = _environment("napari-wsegmenter.stardist")
     sam = _environment("napari-wsegmenter.sam")
+    numpy1 = _environment("napari-wsegmenter.threshold_numpy1")
+    numpy2 = _environment("napari-wsegmenter.threshold_numpy2")
 
     assert "numpy" in cellpose["conda"]
     assert "numpy>=1.23.5,<2" in stardist["pypi"]
     assert "numpy>=1.24.4" in sam["pypi"]
+    assert numpy1["conda"] == ["numpy==1.26.4"]
+    assert numpy2["conda"] == ["numpy==2.2.6"]
 
     worker_project = (WORKER_ROOT / "pyproject.toml").read_text()
     assert "dependencies = []" in worker_project
@@ -178,6 +184,7 @@ def test_worker_commands_remain_qualified_import_targets():
         "napari_wsegmenter_worker:segment_cellpose",
         "napari_wsegmenter_worker:segment_sam",
         "napari_wsegmenter_worker:segment_stardist",
+        "napari_wsegmenter_worker:segment_threshold",
     }
     assert all("path" not in command for command in worker_commands)
 

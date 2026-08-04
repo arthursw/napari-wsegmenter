@@ -11,6 +11,7 @@ from napari_wsegmenter import (
     CellposeWidget,
     SamWidget,
     StardistWidget,
+    ThresholdWidget,
     _widget,
 )
 
@@ -50,7 +51,7 @@ class FakeTask:
 
 @pytest.mark.parametrize(
     "widget_class",
-    [CellposeWidget, StardistWidget, SamWidget],
+    [CellposeWidget, StardistWidget, SamWidget, ThresholdWidget],
 )
 def test_napari_injects_viewer_into_widget(widget_class, make_napari_viewer):
     viewer = make_napari_viewer()
@@ -140,6 +141,43 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     assert task.cancel_calls == 1
     assert widget.status_label.text() == "Segmentation canceled."
     assert widget.run_button.isEnabled()
+
+
+def test_threshold_widget_selects_environment_and_handles_nested_result(
+    make_napari_viewer, monkeypatch
+):
+    viewer = make_napari_viewer()
+    image = np.arange(4, dtype=np.float32).reshape(2, 2)
+    viewer.add_image(image)
+    task = FakeTask()
+    calls = []
+    monkeypatch.setattr(
+        _widget,
+        "_execute_worker_command",
+        lambda command_id, *args, **kwargs: (
+            calls.append((command_id, args, kwargs)) or task
+        ),
+    )
+    widget = ThresholdWidget(viewer)
+    widget.environment.setCurrentIndex(1)
+    widget.threshold.setValue(1.5)
+
+    widget.run()
+
+    assert calls[0][0] == "napari-wsegmenter.threshold_numpy2_worker"
+    assert calls[0][1][1] == {"threshold": 1.5}
+    labels = (image > 1.5).astype(np.uint8)
+    task.finish(
+        "completed",
+        result={
+            "labels": labels,
+            "numpy_version": "2.2.6",
+            "threshold": 1.5,
+        },
+    )
+
+    np.testing.assert_array_equal(viewer.layers[-1].data, labels)
+    assert widget.status_label.text() == "Threshold complete in NumPy 2.2.6."
 
 
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):

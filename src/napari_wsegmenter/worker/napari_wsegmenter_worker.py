@@ -30,6 +30,28 @@ def _update(
     return context.cancel_requested
 
 
+def segment_threshold(
+    image: np.ndarray,
+    parameters: dict[str, Any],
+    *,
+    napari_context: WorkerContext | None = None,
+) -> dict[str, Any] | None:
+    """Threshold an image in either lightweight NumPy test environment."""
+
+    if _update(napari_context, "Thresholding image", 0, 2):
+        return None
+    labels = (np.asarray(image) > float(parameters["threshold"])).astype(
+        np.uint8
+    )
+    if _update(napari_context, "Returning labels", 1, 2):
+        return None
+    return {
+        "labels": labels,
+        "numpy_version": np.__version__,
+        "threshold": float(parameters["threshold"]),
+    }
+
+
 _cellpose_model: Any = None
 _cellpose_model_key: tuple[str, bool] | None = None
 

@@ -73,7 +73,12 @@ class BaseSegmenterWidget(QWidget):
     def run(self) -> None:
         raise NotImplementedError
 
-    def _run_worker(self, parameters: dict[str, Any]) -> None:
+    def _run_worker(
+        self,
+        parameters: dict[str, Any],
+        *,
+        command_id: str | None = None,
+    ) -> None:
         active_layer = self.viewer.layers.selection.active
         if active_layer is None:
             self.status_label.setText("Select an image layer first.")
@@ -83,7 +88,7 @@ class BaseSegmenterWidget(QWidget):
         self.status_label.setText("Preparing plugin environment…")
         try:
             task = _execute_worker_command(
-                self.COMMAND_ID,
+                command_id or self.COMMAND_ID,
                 np.asarray(active_layer.data),
                 parameters,
             )
@@ -240,4 +245,48 @@ class SamWidget(BaseSegmenterWidget):
                 "pred_iou_thresh": float(self.pred_iou_thresh.value()),
                 "stability_score_thresh": float(self.stability_thresh.value()),
             }
+        )
+
+
+class ThresholdWidget(BaseSegmenterWidget):
+    """Small worker example for quickly exercising isolated environments."""
+
+    RESULT_NAME = "Threshold segmentation"
+
+    def __init__(self, napari_viewer: napari.Viewer) -> None:
+        super().__init__(napari_viewer)
+
+        self.environment = QComboBox()
+        self.environment.addItem(
+            "NumPy 1.26",
+            "napari-wsegmenter.threshold_numpy1_worker",
+        )
+        self.environment.addItem(
+            "NumPy 2.2",
+            "napari-wsegmenter.threshold_numpy2_worker",
+        )
+
+        self.threshold = QDoubleSpinBox()
+        self.threshold.setDecimals(4)
+        self.threshold.setRange(-1_000_000_000, 1_000_000_000)
+        self.threshold.setValue(0.5)
+
+        form = QFormLayout()
+        form.addRow("Worker environment:", self.environment)
+        form.addRow("Threshold:", self.threshold)
+        self._set_content(form, "Run threshold")
+
+    def run(self) -> None:
+        self._run_worker(
+            {"threshold": float(self.threshold.value())},
+            command_id=str(self.environment.currentData()),
+        )
+
+    def _on_returned(self, result: Any) -> None:
+        if result is None:
+            return
+        labels = np.asarray(result["labels"])
+        self.viewer.add_labels(labels, name=self.RESULT_NAME)
+        self.status_label.setText(
+            f"Threshold complete in NumPy {result['numpy_version']}."
         )
