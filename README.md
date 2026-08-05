@@ -7,7 +7,7 @@ Segment images with Cellpose, StarDist, or SAM 2 while keeping their dependencie
 Two lightweight threshold environments provide a fast way to exercise installation, removal, execution, reuse, and dependency isolation without downloading a segmentation framework.
 
 This branch is the integration example for napari-managed plugin environments.
-It requires the corresponding napari and npe2 feature branches and Wetlands 2.2 or later.
+It requires the corresponding napari and npe2 feature branches and Wetlands 2.3 or later.
 The plugin itself does not import or depend on Wetlands.
 Wetlands is a private execution backend behind napari-owned task, progress, failure, and lifecycle APIs.
 
@@ -38,7 +38,7 @@ Napari owns environment installation and reuse, worker lifecycle, transport, and
 ## Installation and first run
 
 This is a coordinated pre-release integration branch.
-Install the published `wetlands>=2.2,<2.3`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
+Install the published `wetlands>=2.3,<2.4`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
 Before publishing WSegmenter, replace that requirement with a lower bound on the first released napari version that provides managed plugin environments.
 
 Then install this plugin into that environment:
