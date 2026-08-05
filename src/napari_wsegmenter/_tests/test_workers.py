@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import os
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -91,6 +92,7 @@ def test_threshold_worker_returns_array_and_nested_supported_values():
         result["labels"], np.array([[0, 1], [1, 0]], dtype=np.uint8)
     )
     assert result["numpy_version"] == np.__version__
+    assert result["worker_pid"] == os.getpid()
     assert result["threshold"] == 1.5
     assert [update[0] for update in context.updates] == [
         "Thresholding image",

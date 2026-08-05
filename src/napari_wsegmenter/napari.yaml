@@ -6,6 +6,7 @@ host_dependency_policy: napari
 visibility: public
 categories: ["Segmentation"]
 contributions:
+  worker_package: worker
   environments:
     - id: napari-wsegmenter.cellpose
       display_name: Cellpose
@@ -15,8 +16,6 @@ contributions:
         - cellpose==3.1.0
       channels:
         - conda-forge
-      local_packages:
-        - path: worker
     - id: napari-wsegmenter.stardist
       display_name: StarDist
       python: "==3.10.*"
@@ -27,8 +26,6 @@ contributions:
         - stardist==0.9.2
       channels:
         - conda-forge
-      local_packages:
-        - path: worker
     - id: napari-wsegmenter.sam
       display_name: SAM 2
       python: "==3.10.*"
@@ -38,8 +35,6 @@ contributions:
         - huggingface-hub==0.29.2
       channels:
         - conda-forge
-      local_packages:
-        - path: worker
     - id: napari-wsegmenter.threshold_numpy1
       display_name: Threshold NumPy 1.26
       python: "==3.10.*"
@@ -47,17 +42,6 @@ contributions:
         - numpy==1.26.4
       channels:
         - conda-forge
-      local_packages:
-        - path: worker
-    - id: napari-wsegmenter.threshold_numpy2
-      display_name: Threshold NumPy 2.2
-      python: "==3.10.*"
-      conda:
-        - numpy==2.2.6
-      channels:
-        - conda-forge
-      local_packages:
-        - path: worker
   commands:
     - id: napari-wsegmenter.cellpose_worker
       python_name: napari_wsegmenter_worker:segment_cellpose
@@ -78,11 +62,6 @@ contributions:
       python_name: napari_wsegmenter_worker:segment_threshold
       title: Threshold with NumPy 1.26
       environment: napari-wsegmenter.threshold_numpy1
-      accepts_worker_context: true
-    - id: napari-wsegmenter.threshold_numpy2_worker
-      python_name: napari_wsegmenter_worker:segment_threshold
-      title: Threshold with NumPy 2.2
-      environment: napari-wsegmenter.threshold_numpy2
       accepts_worker_context: true
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget

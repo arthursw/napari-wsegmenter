@@ -148,17 +148,18 @@ def test_built_wheel_contains_minimal_worker_project(built_wheel: Path):
 
 
 def test_environments_use_flat_embedded_worker_project():
-    environments = _manifest()["contributions"]["environments"]
+    contributions = _manifest()["contributions"]
+    environments = contributions["environments"]
 
+    assert contributions["worker_package"] == "worker"
     assert {environment["display_name"] for environment in environments} == {
         "Cellpose",
         "SAM 2",
         "StarDist",
         "Threshold NumPy 1.26",
-        "Threshold NumPy 2.2",
     }
     for environment in environments:
-        assert environment["local_packages"] == [{"path": "worker"}]
+        assert "local_packages" not in environment
         assert environment["python"] == "==3.10.*"
 
 
@@ -167,13 +168,11 @@ def test_environment_manifest_owns_worker_dependencies():
     stardist = _environment("napari-wsegmenter.stardist")
     sam = _environment("napari-wsegmenter.sam")
     numpy1 = _environment("napari-wsegmenter.threshold_numpy1")
-    numpy2 = _environment("napari-wsegmenter.threshold_numpy2")
 
     assert "numpy" in cellpose["conda"]
     assert "numpy>=1.23.5,<2" in stardist["pypi"]
     assert "numpy>=1.24.4" in sam["pypi"]
     assert numpy1["conda"] == ["numpy==1.26.4"]
-    assert numpy2["conda"] == ["numpy==2.2.6"]
 
     worker_project = (WORKER_ROOT / "pyproject.toml").read_text()
     assert "dependencies = []" in worker_project

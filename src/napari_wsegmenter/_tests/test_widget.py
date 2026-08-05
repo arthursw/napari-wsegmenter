@@ -5,10 +5,10 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+
 from napari import plugins as napari_plugins
 from napari._qt.qt_main_window import _instantiate_dock_widget
 from napari.utils import notifications
-
 from napari_wsegmenter import (
     CellposeWidget,
     SamWidget,
@@ -173,7 +173,7 @@ def test_widget_explains_environment_lifecycle_cancellation(
     )
 
 
-def test_threshold_widget_selects_environment_and_handles_nested_result(
+def test_threshold_widget_handles_nested_result(
     make_napari_viewer, monkeypatch
 ):
     viewer = make_napari_viewer()
@@ -190,25 +190,27 @@ def test_threshold_widget_selects_environment_and_handles_nested_result(
         raising=False,
     )
     widget = ThresholdWidget(viewer)
-    widget.environment.setCurrentIndex(1)
     widget.threshold.setValue(1.5)
 
     widget.run()
 
-    assert calls[0][0] == "napari-wsegmenter.threshold_numpy2_worker"
+    assert calls[0][0] == "napari-wsegmenter.threshold_numpy1_worker"
     assert calls[0][1][1] == {"threshold": 1.5}
     labels = (image > 1.5).astype(np.uint8)
     task.finish(
         "completed",
         result={
             "labels": labels,
-            "numpy_version": "2.2.6",
+            "numpy_version": "1.26.4",
+            "worker_pid": 1234,
             "threshold": 1.5,
         },
     )
 
     np.testing.assert_array_equal(viewer.layers[-1].data, labels)
-    assert widget.status_label.text() == "Threshold complete in NumPy 2.2.6."
+    assert widget.status_label.text() == (
+        "Threshold complete in NumPy 1.26.4 · PID 1234."
+    )
 
 
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -28,6 +29,7 @@ def segment_threshold(
     return {
         "labels": labels,
         "numpy_version": np.__version__,
+        "worker_pid": os.getpid(),
         "threshold": float(parameters["threshold"]),
     }
 

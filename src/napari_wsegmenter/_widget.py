@@ -254,30 +254,20 @@ class ThresholdWidget(BaseSegmenterWidget):
     def __init__(self, napari_viewer: napari.Viewer) -> None:
         super().__init__(napari_viewer)
 
-        self.environment = QComboBox()
-        self.environment.addItem(
-            "NumPy 1.26",
-            "napari-wsegmenter.threshold_numpy1_worker",
-        )
-        self.environment.addItem(
-            "NumPy 2.2",
-            "napari-wsegmenter.threshold_numpy2_worker",
-        )
-
         self.threshold = QDoubleSpinBox()
         self.threshold.setDecimals(4)
         self.threshold.setRange(-1_000_000_000, 1_000_000_000)
         self.threshold.setValue(0.5)
 
         form = QFormLayout()
-        form.addRow("Worker environment:", self.environment)
+        form.addRow("Worker environment:", QLabel("NumPy 1.26"))
         form.addRow("Threshold:", self.threshold)
         self._set_content(form, "Run threshold")
 
     def run(self) -> None:
         self._run_worker(
             {"threshold": float(self.threshold.value())},
-            command_id=str(self.environment.currentData()),
+            command_id="napari-wsegmenter.threshold_numpy1_worker",
         )
 
     def _on_returned(self, result: Any) -> None:
@@ -286,5 +276,6 @@ class ThresholdWidget(BaseSegmenterWidget):
         labels = np.asarray(result["labels"])
         self.viewer.add_labels(labels, name=self.RESULT_NAME)
         self.status_label.setText(
-            f"Threshold complete in NumPy {result['numpy_version']}."
+            "Threshold complete in "
+            f"NumPy {result['numpy_version']} · PID {result['worker_pid']}."
         )
