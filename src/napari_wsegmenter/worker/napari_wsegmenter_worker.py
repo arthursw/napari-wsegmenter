@@ -1,49 +1,29 @@
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
-
-class WorkerContext(Protocol):
-    @property
-    def cancel_requested(self) -> bool: ...
-
-    def update(
-        self,
-        message: str,
-        *,
-        current: int | None = None,
-        maximum: int | None = None,
-    ) -> None: ...
-
-
-def _update(
-    context: WorkerContext | None,
-    message: str,
-    current: int,
-    maximum: int,
-) -> bool:
-    if context is None:
-        return False
-    context.update(message, current=current, maximum=maximum)
-    return context.cancel_requested
+if TYPE_CHECKING:
+    from napari.plugins import WorkerContext
 
 
 def segment_threshold(
     image: np.ndarray,
     parameters: dict[str, Any],
     *,
-    napari_context: WorkerContext | None = None,
+    napari_context: WorkerContext,
 ) -> dict[str, Any] | None:
     """Threshold an image in either lightweight NumPy test environment."""
 
-    if _update(napari_context, "Thresholding image", 0, 2):
+    napari_context.update("Thresholding image", current=0, maximum=2)
+    if napari_context.cancel_requested:
         return None
     labels = (np.asarray(image) > float(parameters["threshold"])).astype(
         np.uint8
     )
-    if _update(napari_context, "Returning labels", 1, 2):
+    napari_context.update("Returning labels", current=1, maximum=2)
+    if napari_context.cancel_requested:
         return None
     return {
         "labels": labels,
@@ -60,12 +40,13 @@ def segment_cellpose(
     image: np.ndarray,
     parameters: dict[str, Any],
     *,
-    napari_context: WorkerContext | None = None,
+    napari_context: WorkerContext,
 ) -> np.ndarray | None:
     """Segment an image with Cellpose inside the managed environment."""
     global _cellpose_model, _cellpose_model_key
 
-    if _update(napari_context, "Loading Cellpose", 0, 3):
+    napari_context.update("Loading Cellpose", current=0, maximum=3)
+    if napari_context.cancel_requested:
         return None
 
     from cellpose import models
@@ -78,7 +59,8 @@ def segment_cellpose(
         )
         _cellpose_model_key = model_key
 
-    if _update(napari_context, "Running Cellpose", 1, 3):
+    napari_context.update("Running Cellpose", current=1, maximum=3)
+    if napari_context.cancel_requested:
         return None
 
     masks, *_ = _cellpose_model.eval(
@@ -86,7 +68,8 @@ def segment_cellpose(
         diameter=float(parameters["diameter"]),
         channels=list(parameters["channels"]),
     )
-    if _update(napari_context, "Returning labels", 2, 3):
+    napari_context.update("Returning labels", current=2, maximum=3)
+    if napari_context.cancel_requested:
         return None
     return np.asarray(masks)
 
@@ -99,12 +82,13 @@ def segment_stardist(
     image: np.ndarray,
     parameters: dict[str, Any],
     *,
-    napari_context: WorkerContext | None = None,
+    napari_context: WorkerContext,
 ) -> np.ndarray | None:
     """Segment an image with StarDist inside the managed environment."""
     global _stardist_model, _stardist_model_name
 
-    if _update(napari_context, "Loading StarDist", 0, 3):
+    napari_context.update("Loading StarDist", current=0, maximum=3)
+    if napari_context.cancel_requested:
         return None
 
     from csbdeep.utils import normalize
@@ -134,11 +118,13 @@ def segment_stardist(
         else:
             worker_image = worker_image.mean(axis=-1)
 
-    if _update(napari_context, "Running StarDist", 1, 3):
+    napari_context.update("Running StarDist", current=1, maximum=3)
+    if napari_context.cancel_requested:
         return None
 
     labels, _ = _stardist_model.predict_instances(normalize(worker_image))
-    if _update(napari_context, "Returning labels", 2, 3):
+    napari_context.update("Returning labels", current=2, maximum=3)
+    if napari_context.cancel_requested:
         return None
     return np.asarray(labels)
 
@@ -169,7 +155,7 @@ def segment_sam(
     image: np.ndarray,
     parameters: dict[str, Any],
     *,
-    napari_context: WorkerContext | None = None,
+    napari_context: WorkerContext,
 ) -> np.ndarray | None:
     """Segment an image with SAM 2 inside the managed environment."""
     global _sam_generator_key
@@ -177,7 +163,8 @@ def segment_sam(
     global _sam_predictor
     global _sam_predictor_device
 
-    if _update(napari_context, "Loading SAM 2", 0, 4):
+    napari_context.update("Loading SAM 2", current=0, maximum=4)
+    if napari_context.cancel_requested:
         return None
 
     worker_image = _sam_rgb_image(image)
@@ -211,7 +198,8 @@ def segment_sam(
         )
         _sam_generator_key = generator_key
 
-    if _update(napari_context, "Running SAM 2", 1, 4):
+    napari_context.update("Running SAM 2", current=1, maximum=4)
+    if napari_context.cancel_requested:
         return None
 
     with (
@@ -223,15 +211,17 @@ def segment_sam(
     ):
         annotations = _sam_mask_generator.generate(worker_image)
 
-    if _update(napari_context, "Combining masks", 2, 4):
+    napari_context.update("Combining masks", current=2, maximum=4)
+    if napari_context.cancel_requested:
         return None
 
     labels = np.zeros(worker_image.shape[:2], dtype=np.int32)
     for index, annotation in enumerate(annotations, start=1):
-        if napari_context is not None and napari_context.cancel_requested:
+        if napari_context.cancel_requested:
             return None
         labels[np.asarray(annotation["segmentation"], dtype=bool)] = index
 
-    if _update(napari_context, "Returning labels", 3, 4):
+    napari_context.update("Returning labels", current=3, maximum=4)
+    if napari_context.cancel_requested:
         return None
     return labels

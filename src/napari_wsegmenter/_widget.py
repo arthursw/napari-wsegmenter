@@ -21,18 +21,6 @@ if TYPE_CHECKING:
     import napari
 
 
-def _execute_worker_command(command_id: str, *args: Any, **kwargs: Any) -> Any:
-    from napari.plugins import execute_worker_command
-
-    return execute_worker_command(command_id, *args, **kwargs)
-
-
-def _show_error(message: str) -> None:
-    from napari.utils.notifications import show_error
-
-    show_error(message)
-
-
 class BaseSegmenterWidget(QWidget):
     """Common host-side UI for an isolated segmentation worker."""
 
@@ -87,7 +75,9 @@ class BaseSegmenterWidget(QWidget):
         self._set_busy(True)
         self.status_label.setText("Preparing plugin environment…")
         try:
-            task = _execute_worker_command(
+            from napari.plugins import execute_worker_command
+
+            task = execute_worker_command(
                 command_id or self.COMMAND_ID,
                 np.asarray(active_layer.data),
                 parameters,
@@ -141,7 +131,9 @@ class BaseSegmenterWidget(QWidget):
         message = f"{self.RESULT_NAME} failed: {error}"
         self.status_label.setText(message)
         if notify:
-            _show_error(message)
+            from napari.utils.notifications import show_error
+
+            show_error(message)
 
     def _on_done(self, task: Any) -> None:
         try:

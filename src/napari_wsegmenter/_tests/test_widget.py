@@ -5,14 +5,15 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
+from napari import plugins as napari_plugins
 from napari._qt.qt_main_window import _instantiate_dock_widget
+from napari.utils import notifications
 
 from napari_wsegmenter import (
     CellposeWidget,
     SamWidget,
     StardistWidget,
     ThresholdWidget,
-    _widget,
 )
 
 
@@ -74,7 +75,9 @@ def test_widget_runs_worker_and_adds_returned_labels(
         calls.append((command_id, args, kwargs))
         return task
 
-    monkeypatch.setattr(_widget, "_execute_worker_command", execute)
+    monkeypatch.setattr(
+        napari_plugins, "execute_worker_command", execute, raising=False
+    )
     widget = CellposeWidget(viewer)
 
     widget.run_button.click()
@@ -126,9 +129,10 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     viewer.add_image(np.zeros((4, 4)))
     task = FakeTask()
     monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
+        napari_plugins,
+        "execute_worker_command",
         lambda *args, **kwargs: task,
+        raising=False,
     )
     widget = CellposeWidget(viewer)
     widget.run()
@@ -148,9 +152,10 @@ def test_widget_explains_environment_lifecycle_cancellation(
     viewer.add_image(np.zeros((4, 4)))
     task = FakeTask()
     monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
+        napari_plugins,
+        "execute_worker_command",
         lambda *args, **kwargs: task,
+        raising=False,
     )
     widget = CellposeWidget(viewer)
     widget.run()
@@ -177,11 +182,12 @@ def test_threshold_widget_selects_environment_and_handles_nested_result(
     task = FakeTask()
     calls = []
     monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
+        napari_plugins,
+        "execute_worker_command",
         lambda command_id, *args, **kwargs: (
             calls.append((command_id, args, kwargs)) or task
         ),
+        raising=False,
     )
     widget = ThresholdWidget(viewer)
     widget.environment.setCurrentIndex(1)
@@ -211,11 +217,12 @@ def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
     task = FakeTask()
     errors = []
     monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
+        napari_plugins,
+        "execute_worker_command",
         lambda *args, **kwargs: task,
+        raising=False,
     )
-    monkeypatch.setattr(_widget, "_show_error", errors.append)
+    monkeypatch.setattr(notifications, "show_error", errors.append)
     widget = CellposeWidget(viewer)
     widget.run()
 
@@ -233,8 +240,10 @@ def test_widget_presents_submission_failure(make_napari_viewer, monkeypatch):
     def fail(*args, **kwargs):
         raise RuntimeError("worker command is unavailable")
 
-    monkeypatch.setattr(_widget, "_execute_worker_command", fail)
-    monkeypatch.setattr(_widget, "_show_error", errors.append)
+    monkeypatch.setattr(
+        napari_plugins, "execute_worker_command", fail, raising=False
+    )
+    monkeypatch.setattr(notifications, "show_error", errors.append)
     widget = CellposeWidget(viewer)
 
     widget.run()
@@ -272,9 +281,10 @@ def test_widget_handles_task_completed_before_callbacks_are_added(
             callback(self)
 
     monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
+        napari_plugins,
+        "execute_worker_command",
         lambda *args, **kwargs: CompletedTask(),
+        raising=False,
     )
     widget = CellposeWidget(viewer)
 
