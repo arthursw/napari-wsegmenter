@@ -94,6 +94,7 @@ def test_manifest_validates_with_npe2():
     manifest = PluginManifest.from_file(MANIFEST_PATH)
 
     assert manifest.name == "napari-wsegmenter"
+    assert manifest.host_dependency_policy == "napari"
 
 
 def test_built_wheel_has_valid_host_dependencies(built_wheel: Path):
@@ -134,7 +135,12 @@ def test_built_wheel_contains_minimal_worker_project(built_wheel: Path):
             wheel.read("napari_wsegmenter/worker/pyproject.toml").decode()
         )
 
-    assert "napari_wsegmenter/worker/napari_wsegmenter_worker.py" in names
+    assert {
+        name for name in names if name.startswith("napari_wsegmenter/worker/")
+    } == {
+        "napari_wsegmenter/worker/napari_wsegmenter_worker.py",
+        "napari_wsegmenter/worker/pyproject.toml",
+    }
     assert worker_project["project"]["dependencies"] == []
     assert worker_project["tool"]["setuptools"]["py-modules"] == [
         "napari_wsegmenter_worker"
@@ -150,21 +156,10 @@ def test_environments_use_flat_embedded_worker_project():
         "StarDist",
         "Threshold NumPy 1.26",
         "Threshold NumPy 2.2",
-        "Threshold on install, NumPy 2.0",
     }
     for environment in environments:
         assert environment["local_packages"] == [{"path": "worker"}]
-    assert {
-        environment["id"]: environment["provision"]
-        for environment in environments
-    } == {
-        "napari-wsegmenter.cellpose": "on_demand",
-        "napari-wsegmenter.sam": "on_demand",
-        "napari-wsegmenter.stardist": "on_demand",
-        "napari-wsegmenter.threshold_numpy1": "on_demand",
-        "napari-wsegmenter.threshold_numpy2": "on_demand",
-        "napari-wsegmenter.threshold_on_install": "on_install",
-    }
+        assert environment["python"] == "==3.10.*"
 
 
 def test_environment_manifest_owns_worker_dependencies():
@@ -173,14 +168,12 @@ def test_environment_manifest_owns_worker_dependencies():
     sam = _environment("napari-wsegmenter.sam")
     numpy1 = _environment("napari-wsegmenter.threshold_numpy1")
     numpy2 = _environment("napari-wsegmenter.threshold_numpy2")
-    install_time = _environment("napari-wsegmenter.threshold_on_install")
 
     assert "numpy" in cellpose["conda"]
     assert "numpy>=1.23.5,<2" in stardist["pypi"]
     assert "numpy>=1.24.4" in sam["pypi"]
     assert numpy1["conda"] == ["numpy==1.26.4"]
     assert numpy2["conda"] == ["numpy==2.2.6"]
-    assert install_time["conda"] == ["numpy==2.0.2"]
 
     worker_project = (WORKER_ROOT / "pyproject.toml").read_text()
     assert "dependencies = []" in worker_project

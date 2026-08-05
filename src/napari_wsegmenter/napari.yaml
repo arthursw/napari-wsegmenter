@@ -1,6 +1,7 @@
 schema_version: 0.3.0
 name: napari-wsegmenter
 display_name: WSegmenter
+host_dependency_policy: napari
 # use 'hidden' to remove plugin from napari hub search results
 visibility: public
 categories: ["Segmentation"]
@@ -8,8 +9,7 @@ contributions:
   environments:
     - id: napari-wsegmenter.cellpose
       display_name: Cellpose
-      provision: on_demand
-      python: "3.10.*"
+      python: "==3.10.*"
       conda:
         - numpy
         - cellpose==3.1.0
@@ -19,8 +19,7 @@ contributions:
         - path: worker
     - id: napari-wsegmenter.stardist
       display_name: StarDist
-      provision: on_demand
-      python: "3.10.*"
+      python: "==3.10.*"
       pypi:
         - numpy>=1.23.5,<2
         - tensorflow==2.16.1
@@ -32,8 +31,7 @@ contributions:
         - path: worker
     - id: napari-wsegmenter.sam
       display_name: SAM 2
-      provision: on_demand
-      python: "3.10.*"
+      python: "==3.10.*"
       pypi:
         - numpy>=1.24.4
         - sam-2 @ git+https://github.com/facebookresearch/sam2.git@2b90b9f5ceec907a1c18123530e92e794ad901a4
@@ -44,8 +42,7 @@ contributions:
         - path: worker
     - id: napari-wsegmenter.threshold_numpy1
       display_name: Threshold NumPy 1.26
-      provision: on_demand
-      python: "3.10.*"
+      python: "==3.10.*"
       conda:
         - numpy==1.26.4
       channels:
@@ -54,20 +51,9 @@ contributions:
         - path: worker
     - id: napari-wsegmenter.threshold_numpy2
       display_name: Threshold NumPy 2.2
-      provision: on_demand
-      python: "3.10.*"
+      python: "==3.10.*"
       conda:
         - numpy==2.2.6
-      channels:
-        - conda-forge
-      local_packages:
-        - path: worker
-    - id: napari-wsegmenter.threshold_on_install
-      display_name: Threshold on install, NumPy 2.0
-      provision: on_install
-      python: "3.10.*"
-      conda:
-        - numpy==2.0.2
       channels:
         - conda-forge
       local_packages:
@@ -97,11 +83,6 @@ contributions:
       python_name: napari_wsegmenter_worker:segment_threshold
       title: Threshold with NumPy 2.2
       environment: napari-wsegmenter.threshold_numpy2
-      accepts_worker_context: true
-    - id: napari-wsegmenter.threshold_on_install_worker
-      python_name: napari_wsegmenter_worker:segment_threshold
-      title: Threshold with install-time NumPy 2.0
-      environment: napari-wsegmenter.threshold_on_install
       accepts_worker_context: true
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget

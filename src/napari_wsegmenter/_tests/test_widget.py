@@ -91,7 +91,6 @@ def test_widget_runs_worker_and_adds_returned_labels(
     task.progress(
         SimpleNamespace(
             message="Installing Cellpose",
-            phase=SimpleNamespace(value="provisioning"),
             current=1,
             total=2,
         )
@@ -103,7 +102,6 @@ def test_widget_runs_worker_and_adds_returned_labels(
     task.progress(
         SimpleNamespace(
             message="Segmenting image",
-            phase=SimpleNamespace(value="executing"),
             current=3,
             total=4,
         )
@@ -205,28 +203,6 @@ def test_threshold_widget_selects_environment_and_handles_nested_result(
 
     np.testing.assert_array_equal(viewer.layers[-1].data, labels)
     assert widget.status_label.text() == "Threshold complete in NumPy 2.2.6."
-
-
-def test_threshold_widget_exposes_on_install_environment(
-    make_napari_viewer, monkeypatch
-):
-    viewer = make_napari_viewer()
-    viewer.add_image(np.zeros((2, 2), dtype=np.float32))
-    task = FakeTask()
-    calls = []
-    monkeypatch.setattr(
-        _widget,
-        "_execute_worker_command",
-        lambda command_id, *args, **kwargs: (
-            calls.append((command_id, args, kwargs)) or task
-        ),
-    )
-    widget = ThresholdWidget(viewer)
-    widget.environment.setCurrentIndex(2)
-
-    widget.run()
-
-    assert calls[0][0] == "napari-wsegmenter.threshold_on_install_worker"
 
 
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):

@@ -13,7 +13,7 @@ Wetlands is a private execution backend behind napari-owned task, progress, fail
 
 ## How dependency isolation works
 
-The installed `napari-wsegmenter` host package contains only the Qt widgets and napari integration.
+The host code that napari imports contains only the Qt widgets and napari integration.
 Its runtime requirements are exactly napari, NumPy, and QtPy, which are the host packages it imports and which the running napari installation already supplies.
 Importing the plugin does not import Cellpose, TensorFlow, StarDist, SAM, PyTorch, or Wetlands.
 
@@ -25,7 +25,6 @@ It also associates each worker command with its environment:
 - `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
 - `napari-wsegmenter.threshold_numpy1_worker` runs with NumPy 1.26;
 - `napari-wsegmenter.threshold_numpy2_worker` runs the same worker code with the incompatible NumPy 2.2 release.
-- `napari-wsegmenter.threshold_on_install_worker` runs the same worker with NumPy 2.0 in a lightweight environment declared for installation-time preparation.
 
 The worker code is a single module in the two-file embedded project at `src/napari_wsegmenter/worker`.
 The outer `napari-wsegmenter` wheel ships that project as package data, and napari installs it into each managed environment without publishing a second package.
@@ -34,12 +33,12 @@ They accept a NumPy image and a plain parameter dictionary, then return a NumPy 
 They do not import napari GUI APIs.
 
 The widget calls `napari.plugins.execute_worker_command`, shows compact status and progress for the active request, exposes cancellation, presents failures through napari notifications, and adds returned labels in the main napari process.
-Napari owns provisioning, lifecycle progress, environment logs, worker reuse, transport, and shutdown.
+Napari owns environment installation and reuse, worker lifecycle, transport, and shutdown.
 
 ## Installation and first run
 
 This is a coordinated pre-release integration branch.
-Install the published `wetlands>=2.2`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
+Install the published `wetlands>=2.2,<2.3`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
 Before publishing WSegmenter, replace that requirement with a lower bound on the first released napari version that provides managed plugin environments.
 
 Then install this plugin into that environment:
@@ -48,19 +47,26 @@ Then install this plugin into that environment:
 pip install -e .
 ```
 
-The three segmentation environments and two incompatible NumPy test environments use the `on_demand` provisioning policy, so opening a segmenter widget is side-effect-free.
-The additional NumPy 2.0 test environment uses `on_install`, so a managed Plugin Manager installation prepares it immediately after installing or updating the host plugin package.
-Installing the host package directly with `pip` does not invoke the Plugin Manager lifecycle and does not prepare this environment when napari next launches.
-It remains available through Managed Environments and is prepared automatically if its threshold worker is invoked while it is missing.
-The first Run of any other environment provisions that environment and may take several minutes while packages and model assets are downloaded.
-The widget uses one compact display for environment lifecycle and segmentation progress and can request cancellation throughout the operation.
-The Plugin Manager's Managed Environments window provides shared detailed operation history and installation controls for every plugin environment.
-Later runs reuse the provisioned environment and warm worker while its declared recipe is unchanged.
+Installing or updating the plugin with the Plugin Manager requires restarting napari before the new host code and manifest are used.
+After restart, napari shows a one-time setup notice for a managed-compatible catalog installation whose environments are not installed.
+The notice opens the Plugin Manager's Managed Environments window, where **Install all** installs the five environments sequentially and each environment also has its own **Install** action.
+The notice never starts an installation by itself.
+Opening a segmenter widget is side-effect-free.
+If an environment is still missing when its worker command is first run, napari installs it automatically before starting the worker.
+Large scientific environments may take several minutes to install and model frameworks may also download assets during execution.
+The widget uses one compact display for installation and execution progress and can request cancellation throughout the active operation.
+The Managed Environments window provides the shared, scrollable operation history and the Install, Update, Reinstall, Remove, Stop, and Cancel controls for every plugin environment.
+Managed-environment operations are intentionally not duplicated in napari's Activity widget.
+Later runs reuse the installed environment and warm worker while its declared recipe is unchanged.
 Changing the recipe causes napari to build a new environment generation.
+
+Installing this plugin directly with `pip` is outside the managed Plugin Manager installation flow.
+Restart napari after a direct install or update so plugin discovery sees the new distribution.
+The environments are still listed in Managed Environments and first worker use can install a missing environment, but a direct `pip` install does not create the Plugin Manager's post-install setup notice.
 
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
-The three threshold environments make lifecycle and isolation behavior cheap to inspect: they install different NumPy versions, call the same qualified threshold target, and return a nested value containing a labels array and the worker's NumPy version.
+The two threshold environments make lifecycle and isolation behavior cheap to inspect: they install incompatible NumPy versions, call the same qualified threshold target, and return a nested value containing a labels array and the worker's NumPy version.
 
 The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
 Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.
@@ -94,11 +100,11 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 Select an image layer, open one of the Cellpose, StarDist, SAM, or Threshold environment test dock widgets, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
 Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
-Environment logs are centralized by napari instead of being duplicated in each plugin widget.
+Detailed environment logs are centralized in the Plugin Manager instead of being duplicated in each plugin widget.
 
 For a quick lifecycle test, open **Threshold environment test**, choose either NumPy environment, and click **Run threshold**.
 The first run installs that small environment and later runs reuse it.
-Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to prepare, remove, rebuild, or stop it explicitly, then switch to the other NumPy version to verify that the two recipes coexist.
+Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to install, update, reinstall, remove, or stop it explicitly, then switch to the other NumPy version to verify that the two recipes coexist.
 
 For local development, launch napari with:
 
@@ -126,7 +132,7 @@ uv run npe2 validate --host-dependencies dist/napari_wsegmenter-*.whl
 ```
 
 The unit tests replace heavy frameworks and the napari runtime task with fakes.
-They verify lazy imports, ordinary NumPy inputs and outputs, progress, cancellation, failures, result-layer creation, npe2 manifest parsing, authoritative wheel metadata, and embedded worker contents without provisioning multi-gigabyte environments.
+They verify lazy imports, ordinary NumPy inputs and outputs, progress, cancellation, failures, result-layer creation, npe2 manifest parsing, authoritative wheel metadata, and embedded worker contents without installing multi-gigabyte environments.
 A real end-to-end smoke test should be run from the matching napari and npe2 feature branches before release.
 
 ## License

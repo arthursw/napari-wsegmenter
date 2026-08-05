@@ -271,10 +271,6 @@ class ThresholdWidget(BaseSegmenterWidget):
             "NumPy 2.2",
             "napari-wsegmenter.threshold_numpy2_worker",
         )
-        self.environment.addItem(
-            "NumPy 2.0 (on install)",
-            "napari-wsegmenter.threshold_on_install_worker",
-        )
 
         self.threshold = QDoubleSpinBox()
         self.threshold.setDecimals(4)
