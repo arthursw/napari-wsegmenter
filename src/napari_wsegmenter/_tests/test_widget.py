@@ -144,34 +144,6 @@ def test_widget_cancels_active_task(make_napari_viewer, monkeypatch):
     assert widget.run_button.isEnabled()
 
 
-def test_widget_explains_environment_lifecycle_cancellation(
-    make_napari_viewer, monkeypatch
-):
-    viewer = make_napari_viewer()
-    viewer.add_image(np.zeros((4, 4)))
-    task = FakeTask()
-    monkeypatch.setattr(
-        napari_plugins,
-        "execute_worker_command",
-        lambda *args, **kwargs: task,
-        raising=False,
-    )
-    widget = CellposeWidget(viewer)
-    widget.run()
-
-    task.finish(
-        "canceled",
-        error=RuntimeError(
-            "The managed environment is being stopped or removed"
-        ),
-    )
-
-    assert widget.status_label.text() == (
-        "Segmentation canceled: The managed environment is being stopped "
-        "or removed."
-    )
-
-
 def test_widget_presents_worker_failure(make_napari_viewer, monkeypatch):
     viewer = make_napari_viewer()
     viewer.add_image(np.zeros((4, 4)))
@@ -214,6 +186,40 @@ def test_widget_presents_submission_failure(make_napari_viewer, monkeypatch):
     ]
     assert widget.run_button.isEnabled()
     assert "worker command is unavailable" in widget.status_label.text()
+
+
+def test_widget_explains_unavailable_startup_environment(
+    make_napari_viewer, monkeypatch
+):
+    from napari.plugins.environments import (
+        PluginEnvironmentUnavailableError,
+    )
+
+    viewer = make_napari_viewer()
+    viewer.add_image(np.zeros((4, 4)))
+    task = FakeTask()
+    monkeypatch.setattr(
+        napari_plugins,
+        "execute_worker_command",
+        lambda *args, **kwargs: task,
+        raising=False,
+    )
+    widget = CellposeWidget(viewer)
+
+    widget.run()
+    task.finish(
+        "failed",
+        error=PluginEnvironmentUnavailableError(
+            "This plugin environment is unavailable. Restart napari to retry "
+            "environment setup."
+        ),
+    )
+
+    assert widget.status_label.text() == (
+        "Cellpose segmentation is unavailable: This plugin environment is "
+        "unavailable. Restart napari to retry environment setup."
+    )
+    assert widget.run_button.isEnabled()
 
 
 def test_widget_requires_an_active_layer(make_napari_viewer):

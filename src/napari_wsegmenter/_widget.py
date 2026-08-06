@@ -73,7 +73,7 @@ class BaseSegmenterWidget(QWidget):
             return
 
         self._set_busy(True)
-        self.status_label.setText("Preparing plugin environment…")
+        self.status_label.setText("Starting segmentation worker…")
         try:
             from napari.plugins import execute_worker_command
 
@@ -128,7 +128,17 @@ class BaseSegmenterWidget(QWidget):
         self.status_label.setText("Segmentation complete.")
 
     def _on_error(self, error: Any, *, notify: bool = False) -> None:
-        message = f"{self.RESULT_NAME} failed: {error}"
+        from napari.plugins.environments import (
+            PluginEnvironmentUnavailableError,
+        )
+
+        if isinstance(error, PluginEnvironmentUnavailableError):
+            details = str(error).strip()
+            message = f"{self.RESULT_NAME} is unavailable: {details}"
+            if "restart napari" not in details.casefold():
+                message += " Restart napari to retry plugin environment setup."
+        else:
+            message = f"{self.RESULT_NAME} failed: {error}"
         self.status_label.setText(message)
         if notify:
             from napari.utils.notifications import show_error

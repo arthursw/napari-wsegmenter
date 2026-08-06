@@ -30,7 +30,7 @@ They accept a NumPy image and a plain parameter dictionary, then return a NumPy 
 They do not import napari GUI APIs.
 
 The widget calls `napari.plugins.execute_worker_command`, shows compact status and progress for the active request, exposes cancellation, presents failures through napari notifications, and adds returned labels in the main napari process.
-Napari owns environment installation and reuse, worker lifecycle, transport, and shutdown.
+Napari owns startup environment setup, worker lifecycle, transport, and shutdown.
 
 ## Installation and first run
 
@@ -44,22 +44,18 @@ Then install this plugin into that environment:
 pip install -e .
 ```
 
-Installing or updating the plugin with the Plugin Manager requires restarting napari before the new host code and manifest are used.
-After restart, napari shows a one-time setup notice for a managed-compatible catalog installation whose environments are not installed.
-The notice opens the Plugin Manager's Managed Environments window, where **Install all** installs the three environments sequentially and each environment also has its own **Install** action.
-The notice never starts an installation by itself.
-Opening a segmenter widget is side-effect-free.
-If an environment is still missing when its worker command is first run, napari installs it automatically before starting the worker.
-Large scientific environments may take several minutes to install and model frameworks may also download assets during execution.
-The widget uses one compact display for installation and execution progress and can request cancellation throughout the active operation.
-The Managed Environments window provides the shared, scrollable operation history and the Install, Update, Reinstall, Remove, Stop, and Cancel controls for every plugin environment.
-Managed-environment operations are intentionally not duplicated in napari's Activity widget.
-Later runs reuse the installed environment and warm worker while its declared recipe is unchanged.
-Changing the recipe causes napari to build a new environment generation.
+Installing, updating, or uninstalling the plugin requires restarting napari before the new host code and manifest are used.
+On restart, napari automatically installs or updates all three declared environments before worker commands become available.
+Unchanged environments are reused without showing the setup dialog.
+Large scientific environments may take several minutes to install, and model frameworks may also download assets during execution.
+If setup for a segmenter fails or is skipped, its widget reports that the environment is unavailable and asks the user to restart napari to retry setup.
+Opening a segmenter widget and running a command never installs, removes, or updates an environment.
 
-Installing this plugin directly with `pip` is outside the managed Plugin Manager installation flow.
-Restart napari after a direct install or update so plugin discovery sees the new distribution.
-The environments are still listed in Managed Environments and first worker use can install a missing environment, but a direct `pip` install does not create the Plugin Manager's post-install setup notice.
+The first command for an installed environment starts its worker lazily.
+Later commands reuse the warm worker until it is stopped from napari's **Plugin Workers** window or napari exits.
+Each widget reports command progress and can cancel its own queued or running command.
+
+The same restart rule applies when installing the plugin directly with `pip`: restart napari so discovery sees the changed distribution and reconciles its declared environments.
 
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
@@ -95,10 +91,9 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 
 Select an image layer, open the Cellpose, StarDist, or SAM dock widget, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
-Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
-Detailed environment logs are centralized in the Plugin Manager instead of being duplicated in each plugin widget.
-
-Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to install, update, reinstall, remove, or stop it explicitly.
+Each widget keeps the plugin-specific interface compact: it displays command status and progress and provides Run and Cancel controls.
+Startup setup and worker lifecycle logs are centralized in napari's **Plugin Workers** window instead of being duplicated in each plugin widget.
+That window can stop an idle warm worker to release memory, but environments are otherwise immutable during a napari session.
 
 For local development, launch napari with:
 
