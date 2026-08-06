@@ -77,7 +77,7 @@ The manifest is authoritative for worker runtime dependencies, including NumPy.
 The embedded worker project's dependency list is deliberately empty; its `pyproject.toml` exists only to make the adjacent `napari_wsegmenter_worker.py` module an installable qualified target.
 
 The embedded project must be included in both the source distribution and wheel because `contributions.worker_package` is resolved relative to the installed manifest.
-Its internal distribution version must remain synchronized with plugin releases until local-source content participates directly in every package-build cache key.
+Napari fingerprints and immutably stages its complete contents, so worker code or resource changes rebuild the environment without relying on the embedded project's distribution version.
 Plugin authors expose installed `module:callable` targets.
 Filesystem path execution and backend transport are not part of the napari plugin API.
 
