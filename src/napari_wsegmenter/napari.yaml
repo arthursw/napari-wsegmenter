@@ -47,22 +47,18 @@ contributions:
       python_name: napari_wsegmenter_worker:segment_cellpose
       title: Segment with Cellpose
       environment: napari-wsegmenter.cellpose
-      accepts_worker_context: true
     - id: napari-wsegmenter.stardist_worker
       python_name: napari_wsegmenter_worker:segment_stardist
       title: Segment with StarDist
       environment: napari-wsegmenter.stardist
-      accepts_worker_context: true
     - id: napari-wsegmenter.sam_worker
       python_name: napari_wsegmenter_worker:segment_sam
       title: Segment with SAM
       environment: napari-wsegmenter.sam
-      accepts_worker_context: true
     - id: napari-wsegmenter.threshold_numpy1_worker
       python_name: napari_wsegmenter_worker:segment_threshold
       title: Threshold with NumPy 1.26
       environment: napari-wsegmenter.threshold_numpy1
-      accepts_worker_context: true
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget
       title: Make Cellpose widget
@@ -72,9 +68,6 @@ contributions:
     - id: napari-wsegmenter.make_sam_widget
       python_name: napari_wsegmenter:SamWidget
       title: Make SAM widget
-    - id: napari-wsegmenter.make_threshold_widget
-      python_name: napari_wsegmenter:ThresholdWidget
-      title: Make threshold test widget
   widgets:
     - command: napari-wsegmenter.make_cellpose_widget
       display_name: Cellpose
@@ -82,11 +75,8 @@ contributions:
       display_name: StarDist
     - command: napari-wsegmenter.make_sam_widget
       display_name: SAM
-    - command: napari-wsegmenter.make_threshold_widget
-      display_name: Threshold environment test
   menus:
     napari/layers/segment:
       - command: napari-wsegmenter.make_cellpose_widget
       - command: napari-wsegmenter.make_stardist_widget
       - command: napari-wsegmenter.make_sam_widget
-      - command: napari-wsegmenter.make_threshold_widget

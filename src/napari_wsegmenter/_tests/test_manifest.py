@@ -192,6 +192,22 @@ def test_worker_commands_remain_qualified_import_targets():
         "napari_wsegmenter_worker:segment_threshold",
     }
     assert all("path" not in command for command in worker_commands)
+    assert all(
+        "accepts_worker_context" not in command for command in worker_commands
+    )
+
+
+def test_threshold_command_is_not_exposed_as_a_redundant_widget():
+    contributions = _manifest()["contributions"]
+
+    assert all(
+        item["command"] != "napari-wsegmenter.make_threshold_widget"
+        for item in contributions["widgets"]
+    )
+    assert all(
+        item["command"] != "napari-wsegmenter.make_threshold_widget"
+        for item in contributions["menus"]["napari/layers/segment"]
+    )
 
 
 def test_worker_project_has_only_the_required_source_files():

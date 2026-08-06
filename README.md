@@ -97,13 +97,13 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 
 ## Usage
 
-Select an image layer, open one of the Cellpose, StarDist, SAM, or Threshold environment test dock widgets, choose parameters, and click Run.
+Select an image layer, open the Cellpose, StarDist, or SAM dock widget, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
 Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
 Detailed environment logs are centralized in the Plugin Manager instead of being duplicated in each plugin widget.
 
-For a quick lifecycle test, open **Threshold environment test** and click **Run threshold**.
-The first run installs that small environment and later runs reuse it.
+The companion isolation demo calls the lightweight NumPy 1.26 threshold command directly when comparing it with another plugin's incompatible NumPy 2.2 environment.
+The threshold command deliberately has no separate dock widget because the comparison UI owns that test.
 Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to install, update, reinstall, remove, or stop it explicitly.
 
 For local development, launch napari with:

@@ -5,15 +5,14 @@ from types import SimpleNamespace
 
 import numpy as np
 import pytest
-
 from napari import plugins as napari_plugins
 from napari._qt.qt_main_window import _instantiate_dock_widget
 from napari.utils import notifications
+
 from napari_wsegmenter import (
     CellposeWidget,
     SamWidget,
     StardistWidget,
-    ThresholdWidget,
 )
 
 
@@ -52,7 +51,7 @@ class FakeTask:
 
 @pytest.mark.parametrize(
     "widget_class",
-    [CellposeWidget, StardistWidget, SamWidget, ThresholdWidget],
+    [CellposeWidget, StardistWidget, SamWidget],
 )
 def test_napari_injects_viewer_into_widget(widget_class, make_napari_viewer):
     viewer = make_napari_viewer()
@@ -170,46 +169,6 @@ def test_widget_explains_environment_lifecycle_cancellation(
     assert widget.status_label.text() == (
         "Segmentation canceled: The managed environment is being stopped "
         "or removed."
-    )
-
-
-def test_threshold_widget_handles_nested_result(
-    make_napari_viewer, monkeypatch
-):
-    viewer = make_napari_viewer()
-    image = np.arange(4, dtype=np.float32).reshape(2, 2)
-    viewer.add_image(image)
-    task = FakeTask()
-    calls = []
-    monkeypatch.setattr(
-        napari_plugins,
-        "execute_worker_command",
-        lambda command_id, *args, **kwargs: (
-            calls.append((command_id, args, kwargs)) or task
-        ),
-        raising=False,
-    )
-    widget = ThresholdWidget(viewer)
-    widget.threshold.setValue(1.5)
-
-    widget.run()
-
-    assert calls[0][0] == "napari-wsegmenter.threshold_numpy1_worker"
-    assert calls[0][1][1] == {"threshold": 1.5}
-    labels = (image > 1.5).astype(np.uint8)
-    task.finish(
-        "completed",
-        result={
-            "labels": labels,
-            "numpy_version": "1.26.4",
-            "worker_pid": 1234,
-            "threshold": 1.5,
-        },
-    )
-
-    np.testing.assert_array_equal(viewer.layers[-1].data, labels)
-    assert widget.status_label.text() == (
-        "Threshold complete in NumPy 1.26.4 · PID 1234."
     )
 
 

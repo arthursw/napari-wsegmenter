@@ -244,38 +244,3 @@ class SamWidget(BaseSegmenterWidget):
                 "stability_score_thresh": float(self.stability_thresh.value()),
             }
         )
-
-
-class ThresholdWidget(BaseSegmenterWidget):
-    """Small worker example for quickly exercising isolated environments."""
-
-    RESULT_NAME = "Threshold segmentation"
-
-    def __init__(self, napari_viewer: napari.Viewer) -> None:
-        super().__init__(napari_viewer)
-
-        self.threshold = QDoubleSpinBox()
-        self.threshold.setDecimals(4)
-        self.threshold.setRange(-1_000_000_000, 1_000_000_000)
-        self.threshold.setValue(0.5)
-
-        form = QFormLayout()
-        form.addRow("Worker environment:", QLabel("NumPy 1.26"))
-        form.addRow("Threshold:", self.threshold)
-        self._set_content(form, "Run threshold")
-
-    def run(self) -> None:
-        self._run_worker(
-            {"threshold": float(self.threshold.value())},
-            command_id="napari-wsegmenter.threshold_numpy1_worker",
-        )
-
-    def _on_returned(self, result: Any) -> None:
-        if result is None:
-            return
-        labels = np.asarray(result["labels"])
-        self.viewer.add_labels(labels, name=self.RESULT_NAME)
-        self.status_label.setText(
-            "Threshold complete in "
-            f"NumPy {result['numpy_version']} · PID {result['worker_pid']}."
-        )

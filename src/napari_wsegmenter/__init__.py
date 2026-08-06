@@ -3,11 +3,10 @@ try:
 except ImportError:
     __version__ = "unknown"
 
-from ._widget import CellposeWidget, SamWidget, StardistWidget, ThresholdWidget
+from ._widget import CellposeWidget, SamWidget, StardistWidget
 
 __all__ = (
     "CellposeWidget",
     "StardistWidget",
     "SamWidget",
-    "ThresholdWidget",
 )
