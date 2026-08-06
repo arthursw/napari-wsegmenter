@@ -156,7 +156,6 @@ def test_environments_use_flat_embedded_worker_project():
         "Cellpose",
         "SAM 2",
         "StarDist",
-        "Threshold NumPy 1.26",
     }
     for environment in environments:
         assert "local_packages" not in environment
@@ -167,12 +166,10 @@ def test_environment_manifest_owns_worker_dependencies():
     cellpose = _environment("napari-wsegmenter.cellpose")
     stardist = _environment("napari-wsegmenter.stardist")
     sam = _environment("napari-wsegmenter.sam")
-    numpy1 = _environment("napari-wsegmenter.threshold_numpy1")
 
     assert "numpy" in cellpose["conda"]
     assert "numpy>=1.23.5,<2" in stardist["pypi"]
     assert "numpy>=1.24.4" in sam["pypi"]
-    assert numpy1["conda"] == ["numpy==1.26.4"]
 
     worker_project = (WORKER_ROOT / "pyproject.toml").read_text()
     assert "dependencies = []" in worker_project
@@ -189,24 +186,10 @@ def test_worker_commands_remain_qualified_import_targets():
         "napari_wsegmenter_worker:segment_cellpose",
         "napari_wsegmenter_worker:segment_sam",
         "napari_wsegmenter_worker:segment_stardist",
-        "napari_wsegmenter_worker:segment_threshold",
     }
     assert all("path" not in command for command in worker_commands)
     assert all(
         "accepts_worker_context" not in command for command in worker_commands
-    )
-
-
-def test_threshold_command_is_not_exposed_as_a_redundant_widget():
-    contributions = _manifest()["contributions"]
-
-    assert all(
-        item["command"] != "napari-wsegmenter.make_threshold_widget"
-        for item in contributions["widgets"]
-    )
-    assert all(
-        item["command"] != "napari-wsegmenter.make_threshold_widget"
-        for item in contributions["menus"]["napari/layers/segment"]
     )
 
 

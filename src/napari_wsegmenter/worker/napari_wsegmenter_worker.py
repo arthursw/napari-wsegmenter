@@ -1,37 +1,11 @@
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
 if TYPE_CHECKING:
     from napari.plugins import WorkerContext
-
-
-def segment_threshold(
-    image: np.ndarray,
-    parameters: dict[str, Any],
-    *,
-    napari_context: WorkerContext,
-) -> dict[str, Any] | None:
-    """Threshold an image in either lightweight NumPy test environment."""
-
-    napari_context.update("Thresholding image", current=0, maximum=2)
-    if napari_context.cancel_requested:
-        return None
-    labels = (np.asarray(image) > float(parameters["threshold"])).astype(
-        np.uint8
-    )
-    napari_context.update("Returning labels", current=1, maximum=2)
-    if napari_context.cancel_requested:
-        return None
-    return {
-        "labels": labels,
-        "numpy_version": np.__version__,
-        "worker_pid": os.getpid(),
-        "threshold": float(parameters["threshold"]),
-    }
 
 
 _cellpose_model: Any = None

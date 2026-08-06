@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import os
 import sys
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
@@ -17,7 +16,6 @@ import napari_wsegmenter_worker as worker_module  # noqa: E402
 segment_cellpose = worker_module.segment_cellpose
 segment_sam = worker_module.segment_sam
 segment_stardist = worker_module.segment_stardist
-segment_threshold = worker_module.segment_threshold
 
 
 class FakeContext:
@@ -73,29 +71,6 @@ def test_cellpose_worker_uses_arrays_and_reports_progress(monkeypatch):
     assert [update[0] for update in context.updates] == [
         "Loading Cellpose",
         "Running Cellpose",
-        "Returning labels",
-    ]
-
-
-def test_threshold_worker_returns_array_and_nested_supported_values():
-    image = np.array([[0.0, 2.0], [3.0, 1.0]])
-    context = FakeContext()
-
-    result = segment_threshold(
-        image,
-        {"threshold": 1.5},
-        napari_context=context,
-    )
-
-    assert result is not None
-    np.testing.assert_array_equal(
-        result["labels"], np.array([[0, 1], [1, 0]], dtype=np.uint8)
-    )
-    assert result["numpy_version"] == np.__version__
-    assert result["worker_pid"] == os.getpid()
-    assert result["threshold"] == 1.5
-    assert [update[0] for update in context.updates] == [
-        "Thresholding image",
         "Returning labels",
     ]
 

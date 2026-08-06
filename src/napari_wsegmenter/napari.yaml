@@ -35,13 +35,6 @@ contributions:
         - huggingface-hub==0.29.2
       channels:
         - conda-forge
-    - id: napari-wsegmenter.threshold_numpy1
-      display_name: Threshold NumPy 1.26
-      python: "==3.10.*"
-      conda:
-        - numpy==1.26.4
-      channels:
-        - conda-forge
   commands:
     - id: napari-wsegmenter.cellpose_worker
       python_name: napari_wsegmenter_worker:segment_cellpose
@@ -55,10 +48,6 @@ contributions:
       python_name: napari_wsegmenter_worker:segment_sam
       title: Segment with SAM
       environment: napari-wsegmenter.sam
-    - id: napari-wsegmenter.threshold_numpy1_worker
-      python_name: napari_wsegmenter_worker:segment_threshold
-      title: Threshold with NumPy 1.26
-      environment: napari-wsegmenter.threshold_numpy1
     - id: napari-wsegmenter.make_cellpose_widget
       python_name: napari_wsegmenter:CellposeWidget
       title: Make Cellpose widget

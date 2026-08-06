@@ -4,10 +4,9 @@
 [![npe2](https://img.shields.io/badge/plugin-npe2-blue?link=https://napari.org/stable/plugins/index.html)](https://napari.org/stable/plugins/index.html)
 
 Segment images with Cellpose, StarDist, or SAM 2 while keeping their dependencies out of the environment that runs napari.
-A lightweight NumPy 1.26 threshold environment complements the separate NumPy 2.2 minimal isolation demo without downloading a segmentation framework.
 
 This branch is the integration example for napari-managed plugin environments.
-It requires the corresponding napari and npe2 feature branches and Wetlands 2.3.1 or later.
+It requires the corresponding napari and npe2 feature branches and Wetlands 2.3.2 or later.
 The plugin itself does not import or depend on Wetlands.
 Wetlands is a private execution backend behind napari-owned task, progress, failure, and lifecycle APIs.
 
@@ -23,7 +22,6 @@ It also associates each worker command with its environment:
 - `napari-wsegmenter.cellpose_worker` runs with Cellpose;
 - `napari-wsegmenter.stardist_worker` runs with TensorFlow and StarDist;
 - `napari-wsegmenter.sam_worker` runs with SAM 2 and PyTorch.
-- `napari-wsegmenter.threshold_numpy1_worker` runs with NumPy 1.26;
 
 The worker code is a single module in the two-file embedded project at `src/napari_wsegmenter/worker`.
 The outer `napari-wsegmenter` wheel ships that project as package data, and napari installs it into each managed environment without publishing a second package.
@@ -37,7 +35,7 @@ Napari owns environment installation and reuse, worker lifecycle, transport, and
 ## Installation and first run
 
 This is a coordinated pre-release integration branch.
-Install `wetlands>=2.3.1,<2.4`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
+Install `wetlands>=2.3.2,<2.4`, plus the coordinated npe2 and napari feature checkouts, into one development environment before installing this plugin; do not infer a future napari release number from the currently unbounded `napari` requirement.
 Before publishing WSegmenter, replace that requirement with a lower bound on the first released napari version that provides managed plugin environments.
 
 Then install this plugin into that environment:
@@ -48,7 +46,7 @@ pip install -e .
 
 Installing or updating the plugin with the Plugin Manager requires restarting napari before the new host code and manifest are used.
 After restart, napari shows a one-time setup notice for a managed-compatible catalog installation whose environments are not installed.
-The notice opens the Plugin Manager's Managed Environments window, where **Install all** installs the four environments sequentially and each environment also has its own **Install** action.
+The notice opens the Plugin Manager's Managed Environments window, where **Install all** installs the three environments sequentially and each environment also has its own **Install** action.
 The notice never starts an installation by itself.
 Opening a segmenter widget is side-effect-free.
 If an environment is still missing when its worker command is first run, napari installs it automatically before starting the worker.
@@ -65,8 +63,6 @@ The environments are still listed in Managed Environments and first worker use c
 
 The three segmenters are intentionally isolated from one another.
 Their framework versions do not alter napari's packages or constrain the dependencies of another plugin environment.
-The threshold environment makes lifecycle behavior cheap to inspect and returns a nested value containing a labels array, the worker's NumPy version, and its process identifier.
-The companion `napari-isolation-demo` plugin uses incompatible NumPy 2.2 to demonstrate cross-plugin isolation.
 
 The SAM environment installs Meta's official SAM 2 source at the immutable Git commit declared in `napari.yaml`.
 Meta does not publish an official SAM 2 distribution on PyPI, so the recipe deliberately does not use the unrelated third-party `sam2` project from PyPI.
@@ -102,8 +98,6 @@ Returned labels are added as a napari Labels layer.
 Each widget keeps the plugin-specific interface compact: it displays the current status and progress and provides Run and Cancel controls.
 Detailed environment logs are centralized in the Plugin Manager instead of being duplicated in each plugin widget.
 
-The companion isolation demo calls the lightweight NumPy 1.26 threshold command directly when comparing it with another plugin's incompatible NumPy 2.2 environment.
-The threshold command deliberately has no separate dock widget because the comparison UI owns that test.
 Use **Plugins > Install/Uninstall Plugins > WSegmenter > Environments** to install, update, reinstall, remove, or stop it explicitly.
 
 For local development, launch napari with:
