@@ -52,7 +52,7 @@ If setup for a segmenter fails or is skipped, its widget reports that the enviro
 Opening a segmenter widget and running a command never installs, removes, or updates an environment.
 
 The first command for an installed environment starts its worker lazily.
-Later commands reuse the warm worker until it is stopped from napari's **Plugin Workers** window or napari exits.
+Later commands reuse the warm worker until it is stopped from napari's **Plugin Environments** window or napari exits.
 Each widget reports command progress and can cancel its own queued or running command.
 
 The same restart rule applies when installing the plugin directly with `pip`: restart napari so discovery sees the changed distribution and reconciles its declared environments.
@@ -92,7 +92,7 @@ Worker code is trusted plugin code and retains the user's filesystem, network, p
 Select an image layer, open the Cellpose, StarDist, or SAM dock widget, choose parameters, and click Run.
 Returned labels are added as a napari Labels layer.
 Each widget keeps the plugin-specific interface compact: it displays command status and progress and provides Run and Cancel controls.
-Startup setup and worker lifecycle logs are centralized in napari's **Plugin Workers** window instead of being duplicated in each plugin widget.
+Startup setup and worker lifecycle logs are centralized in napari's **Plugin Environments** window instead of being duplicated in each plugin widget.
 That window can stop an idle warm worker to release memory, but environments are otherwise immutable during a napari session.
 
 For local development, launch napari with:
